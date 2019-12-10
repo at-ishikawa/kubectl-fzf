@@ -17,6 +17,10 @@ type cli struct {
 }
 
 func NewCli(args []string, previewFormat string, outputFormat string) (*cli, error) {
+	if len(args) == 0 {
+		return nil, errors.New("1st argument must be the kind of resources")
+	}
+
 	resource := args[0]
 	var previewCommand string
 	switch previewFormat {
@@ -55,7 +59,7 @@ func (c cli) Run(ctx context.Context) (int, error) {
 	}
 
 	previewCommand := builder.String()
-	fzfCommandLine := fmt.Sprintf("fzf --layout reverse --preview '%s' --preview-window down:80%% --bind ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", previewCommand)
+	fzfCommandLine := fmt.Sprintf("fzf --layout reverse --preview '%s' --preview-window down:70%% --bind ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", previewCommand)
 	commandLine := fmt.Sprintf("%s | %s", kubectlCommand, fzfCommandLine)
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", commandLine)

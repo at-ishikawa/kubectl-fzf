@@ -11,7 +11,7 @@ import (
 
 func main() {
 	previewFormat := flag.String("preview-format", "describe", "The format of preview")
-	outputFormat := flag.String("output-format", "name", "The output format")
+	outputFormat := flag.String("output", "name", "The output format")
 	helpFlag := flag.Bool("help", false, "This help message")
 	flag.Parse()
 	if *helpFlag {

@@ -2,6 +2,14 @@
 
 This is still under development and some BREAKING CHANGES may happen until stable release.
 
+## How to use
+
+```
+$ kubectl fzf get pods
+--- fzf screen ---
+pod name
+```
+
 ## tl;dr
 
 This plugin is the similar to the next command (fish).
@@ -19,7 +27,6 @@ $ kubectl get $resource --no-headers | fzf --layout=reverse --preview="kubectl d
 
 
 # TODOs
-* Install to $GOPATH/bin
 * Support short and long forms for flags
 * Arguments can be defined before or during flags
 * Read FZF environment variables
