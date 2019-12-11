@@ -45,7 +45,7 @@ const (
 )
 
 func (c cli) Run(ctx context.Context) (int, error) {
-	kubectlCommand := fmt.Sprintf("kubectl get %s --no-headers", c.resource)
+	kubectlCommand := fmt.Sprintf("kubectl get %s", c.resource)
 	tmpl, err := template.New("preview").Parse(c.previewCommand)
 	if err != nil {
 		return 1, fmt.Errorf("failed to parse preview command: %w", err)
@@ -59,7 +59,7 @@ func (c cli) Run(ctx context.Context) (int, error) {
 	}
 
 	previewCommand := builder.String()
-	fzfCommandLine := fmt.Sprintf("fzf --layout reverse --preview '%s' --preview-window down:70%% --bind ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", previewCommand)
+	fzfCommandLine := fmt.Sprintf("fzf --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", previewCommand)
 	commandLine := fmt.Sprintf("%s | %s", kubectlCommand, fzfCommandLine)
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", commandLine)
