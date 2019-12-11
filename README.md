@@ -2,6 +2,8 @@
 
 This is still under development and some BREAKING CHANGES may happen until stable release.
 
+![kubectl-fzf-get demo](doc/demo.gif)
+
 ## tl;dr
 This plugin is the similar to the next command (fish).
 
@@ -12,14 +14,12 @@ $ kubectl get $resource --no-headers | fzf --layout=reverse --preview="kubectl d
 
 ## Install
 ```shell script
-> go get -u github.com/at-ishikawa/kubectl-fzf-get/cmd/kubectl-fzf-get
+$ go get -u github.com/at-ishikawa/kubectl-fzf-get/cmd/kubectl-fzf-get
 ```
 
 ## How to use
 ```
 $ kubectl fzf get pods
---- fzf screen ---
-pod name
 ```
 
 ## Requirements
@@ -38,7 +38,6 @@ pod name
 * Pass custom arguments
 * Error handlings
 * Help messages
-* Enable to use with a pipe after this command, like `kubectl-fzf-get pods | kubectl port-forward - $LOCAL:$REMOTE`
 * Update README.md
 * Write test cases
 * Write CI

@@ -10,8 +10,10 @@ import (
 )
 
 func main() {
+	var outputFormat string
 	previewFormat := flag.String("preview-format", "describe", "The format of preview")
-	outputFormat := flag.String("output", "name", "The output format")
+	flag.StringVar(&outputFormat, "output", "name", "The output format")
+	flag.StringVar(&outputFormat, "o", "name", "The output format")
 	helpFlag := flag.Bool("help", false, "This help message")
 	flag.Parse()
 	if *helpFlag {
@@ -19,7 +21,7 @@ func main() {
 		return
 	}
 
-	c, err := command.NewCli(flag.Args(), *previewFormat, *outputFormat)
+	c, err := command.NewCli(flag.Args(), *previewFormat, outputFormat)
 	if err != nil {
 		fmt.Println(err)
 		flag.PrintDefaults()
