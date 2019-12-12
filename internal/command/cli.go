@@ -58,7 +58,7 @@ func (c cli) Run(ctx context.Context) (uint, error) {
 	}
 
 	previewCommand := builder.String()
-	fzfCommandLine := fmt.Sprintf("fzf --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", previewCommand)
+	fzfCommandLine := fmt.Sprintf("fzf --inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", previewCommand)
 	commandLine := fmt.Sprintf("%s | %s", kubectlCommand, fzfCommandLine)
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", commandLine)
