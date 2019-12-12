@@ -29,8 +29,6 @@ $ kubectl fzf get pods
 
 
 # TODOs
-* Support short and long forms for flags
-* Arguments can be defined before or during flags
 * Read FZF environment variables
 * Define and use custom environment variables
     * key bindings

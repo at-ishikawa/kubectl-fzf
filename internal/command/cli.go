@@ -16,12 +16,11 @@ type cli struct {
 	outputFormat   string
 }
 
-func NewCli(args []string, previewFormat string, outputFormat string) (*cli, error) {
-	if len(args) == 0 {
+func NewCli(resource string, previewFormat string, outputFormat string) (*cli, error) {
+	if resource == "" {
 		return nil, errors.New("1st argument must be the kind of resources")
 	}
 
-	resource := args[0]
 	var previewCommand string
 	switch previewFormat {
 	case "describe":
@@ -44,7 +43,7 @@ const (
 	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml"
 )
 
-func (c cli) Run(ctx context.Context) (int, error) {
+func (c cli) Run(ctx context.Context) (uint, error) {
 	kubectlCommand := fmt.Sprintf("kubectl get %s", c.resource)
 	tmpl, err := template.New("preview").Parse(c.previewCommand)
 	if err != nil {
