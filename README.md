@@ -9,7 +9,7 @@ This plugin is the similar to the next command (fish).
 
 ```fish
 $ set -l resource pods resource
-$ kubectl get $resource --no-headers | fzf --layout=reverse --preview="kubectl describe $resource {1}" --preview-window=down:80% --bind $key_bindings | awk '{ print $1 }' | string trim
+$ kubectl get $resource | fzf --layout=reverse --preview="kubectl describe $resource {1}" --header-lines 1 --preview-window=down:80% --bind $key_bindings | awk '{ print $1 }' | string trim
 ```
 
 ## Install
