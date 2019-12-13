@@ -10,13 +10,13 @@ import (
 	"strings"
 )
 
-type cli struct {
+type getCommand struct {
 	resource       string
 	previewCommand string
 	outputFormat   string
 }
 
-func NewCli(resource string, previewFormat string, outputFormat string) (*cli, error) {
+func NewGetCommand(resource string, previewFormat string, outputFormat string) (*getCommand, error) {
 	if resource == "" {
 		return nil, errors.New("1st argument must be the kind of resources")
 	}
@@ -31,7 +31,7 @@ func NewCli(resource string, previewFormat string, outputFormat string) (*cli, e
 		return nil, errors.New("preview format must be one of [describe, yaml]")
 	}
 
-	return &cli{
+	return &getCommand{
 		resource:       resource,
 		previewCommand: previewCommand,
 		outputFormat:   outputFormat,
@@ -43,7 +43,7 @@ const (
 	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml"
 )
 
-func (c cli) Run(ctx context.Context) (uint, error) {
+func (c getCommand) Run(ctx context.Context) (uint, error) {
 	kubectlCommand := fmt.Sprintf("kubectl get %s", c.resource)
 	tmpl, err := template.New("preview").Parse(c.previewCommand)
 	if err != nil {
@@ -66,7 +66,7 @@ func (c cli) Run(ctx context.Context) (uint, error) {
 	cmd.Stdin = os.Stdin
 	out, err := cmd.Output()
 	if err != nil {
-		return 1, fmt.Errorf("failed to run a cli: %w", err)
+		return 1, fmt.Errorf("failed to run a get: %w", err)
 	}
 
 	line := strings.TrimSpace(string(out))

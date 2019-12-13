@@ -14,7 +14,7 @@ $ kubectl get $resource | fzf --layout=reverse --preview="kubectl describe $reso
 
 ## Install
 ```shell script
-$ go get -u github.com/at-ishikawa/kubectl-fzf-get/cmd/kubectl-fzf-get
+$ go get -u github.com/at-ishikawa/kubectl-fzf/cmd/kubectl-fzf
 ```
 
 ## How to use

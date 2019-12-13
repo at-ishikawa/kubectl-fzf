@@ -13,8 +13,12 @@ import (
 func main() {
 	var exitCode uint
 	cli := cobra.Command{
-		Use:   "kubectl-fzf-get [resource]",
-		Short: "kubectl get [resource] with fzf",
+		Use:   "kubectl-fzf [command]",
+		Short: "kubectl commands with fzf",
+	}
+	getCommand := cobra.Command{
+		Use:   "get [resource]",
+		Short: "kubectl get resources with fzf",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resource := args[0]
@@ -27,7 +31,7 @@ func main() {
 				return err
 			}
 
-			co, err := command.NewCli(resource, previewFormat, outputFormat)
+			co, err := command.NewGetCommand(resource, previewFormat, outputFormat)
 			if err != nil {
 				return err
 			}
@@ -39,9 +43,11 @@ func main() {
 			return nil
 		},
 	}
-	flags := cli.Flags()
+	flags := getCommand.Flags()
 	flags.StringP("preview-format", "p", "describe", "The format of preview")
 	flags.StringP("output", "o", "name", "The output format")
+
+	cli.AddCommand(&getCommand)
 	if err := cli.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

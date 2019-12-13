@@ -1,5 +1,6 @@
 build:
-	go build -o ./bin ./cmd/kubectl-fzf-get
+	mkdir -p ./bin
+	go build -o ./bin/ ./cmd/kubectl-fzf
 
 install:
-	go install ./cmd/kubectl-fzf-get
+	go install ./cmd/kubectl-fzf
