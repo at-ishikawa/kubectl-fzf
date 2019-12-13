@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	var exitCode uint
+	var exitCode int
 	cli := cobra.Command{
 		Use:   "kubectl-fzf [command]",
 		Short: "kubectl commands with fzf",
@@ -36,7 +36,7 @@ func main() {
 				return err
 			}
 
-			exitCode, err = co.Run(context.Background())
+			exitCode, err = co.Run(context.Background(), os.Stdin, os.Stdout, os.Stderr)
 			if err != nil {
 				return err
 			}
@@ -52,5 +52,5 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	os.Exit(0)
+	os.Exit(exitCode)
 }
