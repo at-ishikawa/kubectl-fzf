@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/at-ishikawa/kubectl-fzf-get/internal/command"
+	"github.com/at-ishikawa/kubectl-fzf/internal/command"
 )
 
 func main() {

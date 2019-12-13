@@ -2,7 +2,7 @@
 
 This is still under development and some BREAKING CHANGES may happen until stable release.
 
-![kubectl-fzf-get demo](doc/demo.gif)
+![kubectl-fzf get demo](doc/demo.gif)
 
 ## tl;dr
 This plugin is the similar to the next command (fish).
