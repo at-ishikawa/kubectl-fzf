@@ -16,19 +16,31 @@ type getCommand struct {
 	outputFormat   string
 }
 
+const (
+	kubectlOutputFormatDescribe = "describe"
+	kubectlOutputFormatYaml     = "yaml"
+
+	previewCommandDescribe = "kubectl describe {{ .resource }} {{ .name }}"
+	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml"
+)
+
+var (
+	errorInvalidArgumentResource       = errors.New("1st argument must be the kind of resources")
+	errorInvalidArgumentPreviewCommand = errors.New("preview format must be one of [describe, yaml]")
+
+	previewCommands = map[string]string{
+		kubectlOutputFormatDescribe: previewCommandDescribe,
+		kubectlOutputFormatYaml:     previewCommandYaml,
+	}
+)
+
 func NewGetCommand(resource string, previewFormat string, outputFormat string) (*getCommand, error) {
 	if resource == "" {
-		return nil, errors.New("1st argument must be the kind of resources")
+		return nil, errorInvalidArgumentResource
 	}
-
-	var previewCommand string
-	switch previewFormat {
-	case "describe":
-		previewCommand = previewCommandDescribe
-	case "yaml":
-		previewCommand = previewCommandYaml
-	default:
-		return nil, errors.New("preview format must be one of [describe, yaml]")
+	previewCommand, ok := previewCommands[previewFormat]
+	if !ok {
+		return nil, errorInvalidArgumentPreviewCommand
 	}
 
 	return &getCommand{
@@ -37,11 +49,6 @@ func NewGetCommand(resource string, previewFormat string, outputFormat string) (
 		outputFormat:   outputFormat,
 	}, nil
 }
-
-const (
-	previewCommandDescribe = "kubectl describe {{ .resource }} {{ .name }}"
-	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml"
-)
 
 func (c getCommand) Run(ctx context.Context) (uint, error) {
 	kubectlCommand := fmt.Sprintf("kubectl get %s", c.resource)
