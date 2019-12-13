@@ -1,6 +1,9 @@
 # kubectl fzf plugin
 
+[![Go workflow](https://github.com/at-ishikawa/kubectl-fzf/workflows/Go/badge.svg)](https://github.com/at-ishikawa/kubectl-fzf)
+
 This is still under development and some BREAKING CHANGES may happen until stable release.
+
 
 ![kubectl-fzf get demo](doc/demo.gif)
 
@@ -37,5 +40,4 @@ $ kubectl fzf get pods
 * Error handlings
 * Help messages
 * Update README.md
-* Write CI
 * krew support?
