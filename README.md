@@ -37,6 +37,5 @@ $ kubectl fzf get pods
 * Error handlings
 * Help messages
 * Update README.md
-* Write test cases
 * Write CI
 * krew support?

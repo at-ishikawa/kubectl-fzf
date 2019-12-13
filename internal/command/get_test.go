@@ -118,7 +118,6 @@ func TestRun(t *testing.T) {
 		runCommandWithFzf func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error)
 		runKubectl        func(ctx context.Context, args []string) (i []byte, e error)
 		sut               getCommand
-		want              int
 		wantErr           error
 		wantIO            string
 		wantIOErr         string
@@ -132,7 +131,6 @@ func TestRun(t *testing.T) {
 			},
 			runCommandWithFzf: defaultRunCommand,
 			runKubectl:        nil,
-			want:              0,
 			wantErr:           nil,
 			wantIO:            "pod",
 			wantIOErr:         "",
@@ -155,7 +153,6 @@ func TestRun(t *testing.T) {
 				}, args)
 				return bytes.NewBufferString("Kind: Pod").Bytes(), nil
 			},
-			want:      0,
 			wantErr:   nil,
 			wantIO:    "Kind: Pod",
 			wantIOErr: "",
@@ -178,7 +175,6 @@ func TestRun(t *testing.T) {
 				}, args)
 				return bytes.NewBufferString("{\"kind\":\"Pod\"}").Bytes(), nil
 			},
-			want:      0,
 			wantErr:   nil,
 			wantIO:    "{\"kind\":\"Pod\"}",
 			wantIOErr: "",
@@ -199,7 +195,6 @@ func TestRun(t *testing.T) {
 				}, args)
 				return bytes.NewBufferString("Name: pod").Bytes(), nil
 			},
-			want:      0,
 			wantErr:   nil,
 			wantIO:    "Name: pod",
 			wantIOErr: "",
@@ -215,7 +210,6 @@ func TestRun(t *testing.T) {
 				return nil, defaultWantErr
 			},
 			runKubectl: nil,
-			want:       1,
 			wantErr:    defaultWantErr,
 			wantIO:     "",
 			wantIOErr:  "",
@@ -231,7 +225,6 @@ func TestRun(t *testing.T) {
 			runKubectl: func(ctx context.Context, args []string) (i []byte, e error) {
 				return nil, defaultWantErr
 			},
-			want:      2,
 			wantErr:   defaultWantErr,
 			wantIO:    "",
 			wantIOErr: "",
@@ -245,8 +238,7 @@ func TestRun(t *testing.T) {
 
 			var gotIOOut bytes.Buffer
 			var gotIOErr bytes.Buffer
-			gotExitCode, gotErr := tc.sut.Run(context.Background(), strings.NewReader("in"), &gotIOOut, &gotIOErr)
-			assert.Equal(t, tc.want, gotExitCode)
+			gotErr := tc.sut.Run(context.Background(), strings.NewReader("in"), &gotIOOut, &gotIOErr)
 			assert.True(t, errors.Is(gotErr, tc.wantErr))
 			assert.Equal(t, tc.wantIO, gotIOOut.String())
 			assert.Equal(t, tc.wantIOErr, gotIOErr.String())
