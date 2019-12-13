@@ -30,6 +30,7 @@ const (
 var (
 	errorInvalidArgumentResource       = errors.New("1st argument must be the kind of resources")
 	errorInvalidArgumentPreviewCommand = errors.New("preview format must be one of [describe, yaml]")
+	errorInvalidArgumentOutputFormat   = errors.New("output format must be one of [name, describe, yaml, json]")
 
 	runCommandWithFzf = func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) ([]byte, error) {
 		cmd := exec.CommandContext(ctx, "sh", "-c", commandLine)
@@ -44,6 +45,12 @@ var (
 		kubectlOutputFormatDescribe: previewCommandDescribe,
 		kubectlOutputFormatYaml:     previewCommandYaml,
 	}
+	outputFormats = map[string]struct{}{
+		kubectlOutputFormatName:     {},
+		kubectlOutputFormatDescribe: {},
+		kubectlOutputFormatYaml:     {},
+		kubectlOutputFormatJSON:     {},
+	}
 )
 
 func NewGetCommand(resource string, previewFormat string, outputFormat string) (*getCommand, error) {
@@ -53,6 +60,9 @@ func NewGetCommand(resource string, previewFormat string, outputFormat string) (
 	previewCommand, ok := previewCommands[previewFormat]
 	if !ok {
 		return nil, errorInvalidArgumentPreviewCommand
+	}
+	if _, ok := outputFormats[outputFormat]; !ok {
+		return nil, errorInvalidArgumentOutputFormat
 	}
 
 	return &getCommand{
@@ -64,19 +74,13 @@ func NewGetCommand(resource string, previewFormat string, outputFormat string) (
 
 func (c getCommand) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) (int, error) {
 	kubectlCommand := fmt.Sprintf("kubectl get %s", c.resource)
-	tmpl, err := template.New("preview").Parse(c.previewCommand)
-	if err != nil {
-		return 1, fmt.Errorf("failed to parse preview command: %w", err)
-	}
-	builder := strings.Builder{}
-	if err = tmpl.Execute(&builder, map[string]interface{}{
+	previewCommand, err := buildCommand("preview", c.previewCommand, map[string]interface{}{
 		"resource": c.resource,
 		"name":     "{1}",
-	}); err != nil {
-		return 1, fmt.Errorf("failed to parse preview command: %w", err)
+	})
+	if err != nil {
+		return 1, fmt.Errorf("invalid preview command: %w", err)
 	}
-
-	previewCommand := builder.String()
 	fzfCommandLine := fmt.Sprintf("fzf --inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", previewCommand)
 	commandLine := fmt.Sprintf("%s | %s", kubectlCommand, fzfCommandLine)
 
@@ -91,23 +95,24 @@ func (c getCommand) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, io
 
 	if c.outputFormat == kubectlOutputFormatName {
 		out = bytes.NewBufferString(name).Bytes()
-	} else if c.outputFormat == kubectlOutputFormatDescribe {
-		args := []string{
-			"describe",
-			c.resource,
-			name,
-		}
-		out, err = runKubectl(ctx, args)
-		if err != nil {
-			return 2, fmt.Errorf("failed to output: %w. Output command result: %s", err, string(out))
-		}
-	} else if c.outputFormat == kubectlOutputFormatJSON || c.outputFormat == kubectlOutputFormatYaml {
-		args := []string{
-			"get",
-			c.resource,
-			"-o",
-			c.outputFormat,
-			name,
+	} else {
+		var args []string
+		if c.outputFormat == kubectlOutputFormatDescribe {
+			args = []string{
+				"describe",
+				c.resource,
+				name,
+			}
+		} else if c.outputFormat == kubectlOutputFormatJSON || c.outputFormat == kubectlOutputFormatYaml {
+			args = []string{
+				"get",
+				c.resource,
+				"-o",
+				c.outputFormat,
+				name,
+			}
+		} else {
+			panic(errorInvalidArgumentOutputFormat)
 		}
 		out, err = runKubectl(ctx, args)
 		if err != nil {
@@ -119,4 +124,16 @@ func (c getCommand) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, io
 		return 1, err
 	}
 	return 0, nil
+}
+
+func buildCommand(name string, command string, data map[string]interface{}) (string, error) {
+	tmpl, err := template.New(name).Parse(command)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse preview command: %w", err)
+	}
+	builder := strings.Builder{}
+	if err = tmpl.Execute(&builder, data); err != nil {
+		return "", fmt.Errorf("failed to parse preview command: %w", err)
+	}
+	return builder.String(), nil
 }

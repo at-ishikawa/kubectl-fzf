@@ -41,6 +41,7 @@ func TestNewGetCommand(t *testing.T) {
 			name:           "desc preview command",
 			resource:       kubernetesResourcePods,
 			previewCommand: kubectlOutputFormatDescribe,
+			outputFormat:   kubectlOutputFormatYaml,
 			want:           &getCommand{resource: kubernetesResourcePods, previewCommand: previewCommandDescribe, outputFormat: kubectlOutputFormatYaml},
 			wantErr:        nil,
 		},
@@ -48,6 +49,7 @@ func TestNewGetCommand(t *testing.T) {
 			name:           "get yaml preview command",
 			resource:       kubernetesResourceService,
 			previewCommand: kubectlOutputFormatYaml,
+			outputFormat:   kubectlOutputFormatYaml,
 			want:           &getCommand{resource: kubernetesResourceService, previewCommand: previewCommandYaml, outputFormat: kubectlOutputFormatYaml},
 			wantErr:        nil,
 		},
@@ -55,6 +57,7 @@ func TestNewGetCommand(t *testing.T) {
 			name:           "empty yaml",
 			resource:       "",
 			previewCommand: kubectlOutputFormatYaml,
+			outputFormat:   kubectlOutputFormatYaml,
 			want:           nil,
 			wantErr:        errorInvalidArgumentResource,
 		},
@@ -62,6 +65,7 @@ func TestNewGetCommand(t *testing.T) {
 			name:           "invalid preview command",
 			resource:       kubernetesResourcePods,
 			previewCommand: "unknown",
+			outputFormat:   kubectlOutputFormatYaml,
 			want:           nil,
 			wantErr:        errorInvalidArgumentPreviewCommand,
 		},
@@ -72,11 +76,27 @@ func TestNewGetCommand(t *testing.T) {
 			want:           nil,
 			wantErr:        errorInvalidArgumentPreviewCommand,
 		},
+		{
+			name:           "invalid output format",
+			resource:       kubernetesResourcePods,
+			previewCommand: kubectlOutputFormatYaml,
+			outputFormat:   "unknown",
+			want:           nil,
+			wantErr:        errorInvalidArgumentOutputFormat,
+		},
+		{
+			name:           "empty output format",
+			resource:       kubernetesResourcePods,
+			previewCommand: kubectlOutputFormatYaml,
+			outputFormat:   "",
+			want:           nil,
+			wantErr:        errorInvalidArgumentOutputFormat,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, gotErr := NewGetCommand(tc.resource, tc.previewCommand, kubectlOutputFormatYaml)
+			got, gotErr := NewGetCommand(tc.resource, tc.previewCommand, tc.outputFormat)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantErr, gotErr)
 		})
@@ -230,6 +250,75 @@ func TestRun(t *testing.T) {
 			assert.True(t, errors.Is(gotErr, tc.wantErr))
 			assert.Equal(t, tc.wantIO, gotIOOut.String())
 			assert.Equal(t, tc.wantIOErr, gotIOErr.String())
+		})
+	}
+}
+
+func TestBuildCommand(t *testing.T) {
+	testCases := []struct {
+		name         string
+		templateName string
+		command      string
+		data         map[string]interface{}
+		want         string
+		wantIsErr    bool
+	}{
+		{
+			name:         "template",
+			templateName: "template",
+			command:      "kubectl {{ .command }} {{ .resource }}",
+			data: map[string]interface{}{
+				"command":  "get",
+				"resource": "pods",
+			},
+			want:      "kubectl get pods",
+			wantIsErr: false,
+		},
+		{
+			name:         "no template",
+			templateName: "",
+			command:      "{{ .name }}",
+			data: map[string]interface{}{
+				"name": "fzf",
+			},
+			want:      "fzf",
+			wantIsErr: false,
+		},
+		{
+			name:         "invalid command",
+			templateName: "template",
+			command:      "{{ .name }",
+			data: map[string]interface{}{
+				"name": "name",
+			},
+			want:      "",
+			wantIsErr: true,
+		},
+		{
+			name:         "wrong parameter",
+			templateName: "template",
+			command:      "wrong {{ .name }}",
+			data: map[string]interface{}{
+				"unknown": "unknown",
+			},
+			want:      "wrong ",
+			wantIsErr: false,
+		},
+		{
+			name:         "no parameter",
+			templateName: "template",
+			command:      "no {{ .name }}",
+			data:         nil,
+			want:         "no ",
+			wantIsErr:    false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, gotErr := buildCommand(tc.templateName, tc.command, tc.data)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantIsErr, gotErr != nil)
 		})
 	}
 }
