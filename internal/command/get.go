@@ -29,7 +29,7 @@ const (
 
 	envNameFzfOption     = "KUBECTL_FZF_FZF_OPTION"
 	envNameFzfBindOption = "KUBECTL_FZF_FZF_BIND_OPTION"
-	defaultFzfBindOption = "ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down"
+	defaultFzfBindOption = "ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down"
 	defaultFzfOption     = "--inline-info --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION"
 )
 
