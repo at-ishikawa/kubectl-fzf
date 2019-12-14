@@ -95,6 +95,7 @@ func TestNewGetCommand(t *testing.T) {
 		resource       string
 		previewCommand string
 		outputFormat   string
+		fzfQuery       string
 		envVars        map[string]string
 		want           *getCommand
 		wantErr        error
@@ -104,6 +105,7 @@ func TestNewGetCommand(t *testing.T) {
 			resource:       kubernetesResourcePods,
 			previewCommand: kubectlOutputFormatDescribe,
 			outputFormat:   kubectlOutputFormatYaml,
+			fzfQuery:       "",
 			want: &getCommand{
 				resource:     kubernetesResourcePods,
 				outputFormat: kubectlOutputFormatYaml,
@@ -116,10 +118,11 @@ func TestNewGetCommand(t *testing.T) {
 			resource:       kubernetesResourceService,
 			previewCommand: kubectlOutputFormatYaml,
 			outputFormat:   kubectlOutputFormatYaml,
+			fzfQuery:       "svc",
 			want: &getCommand{
 				resource:     kubernetesResourceService,
 				outputFormat: kubectlOutputFormatYaml,
-				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl get svc {1} -o yaml", defaultFzfBindOption),
+				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s --query svc", "kubectl get svc {1} -o yaml", defaultFzfBindOption),
 			},
 			wantErr: nil,
 		},
@@ -187,7 +190,7 @@ func TestNewGetCommand(t *testing.T) {
 					require.NoError(t, os.Setenv(k, v))
 				}
 			}
-			got, gotErr := NewGetCommand(tc.resource, tc.previewCommand, tc.outputFormat)
+			got, gotErr := NewGetCommand(tc.resource, tc.previewCommand, tc.outputFormat, tc.fzfQuery)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantErr, gotErr)
 		})
