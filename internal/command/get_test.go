@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -207,6 +208,7 @@ func TestRun(t *testing.T) {
 		return bytes.NewBufferString("pod 2/2 Running 2d").Bytes(), nil
 	}
 	defaultWantErr := errors.New("want error")
+	exitErr := exec.ExitError{}
 
 	testCases := []struct {
 		name              string
@@ -306,6 +308,21 @@ func TestRun(t *testing.T) {
 			},
 			runKubectl: nil,
 			wantErr:    defaultWantErr,
+			wantIO:     "",
+			wantIOErr:  "",
+		},
+		{
+			name: "command with fzf exit error (not 130)",
+			sut: getCli{
+				resource:     kubernetesResourcePods,
+				fzfOption:    fzfOption,
+				outputFormat: kubectlOutputFormatDescribe,
+			},
+			runCommandWithFzf: func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
+				return nil, &exitErr
+			},
+			runKubectl: nil,
+			wantErr:    &exitErr,
 			wantIO:     "",
 			wantIOErr:  "",
 		},

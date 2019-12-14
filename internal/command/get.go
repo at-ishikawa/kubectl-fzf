@@ -127,6 +127,13 @@ func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr 
 	command := fmt.Sprintf("kubectl get %s | fzf %s", c.resource, c.fzfOption)
 	out, err := runCommandWithFzf(ctx, command, ioIn, ioErr)
 	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			// Script canceled by Ctrl-c
+			// Only for bash?: http://tldp.org/LDP/abs/html/exitcodes.html
+			if exitErr.ExitCode() == 130 {
+				return nil
+			}
+		}
 		return fmt.Errorf("failed to run the command %s: %w", command, err)
 	}
 
