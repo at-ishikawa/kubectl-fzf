@@ -59,7 +59,7 @@ var (
 	}
 )
 
-func NewGetCommand(resource string, previewFormat string, outputFormat string) (*getCommand, error) {
+func NewGetCommand(resource string, previewFormat string, outputFormat string, fzfQuery string) (*getCommand, error) {
 	if resource == "" {
 		return nil, errorInvalidArgumentResource
 	}
@@ -78,6 +78,9 @@ func NewGetCommand(resource string, previewFormat string, outputFormat string) (
 	fzfOption, err := getFzfOption(previewCommand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fzf option: %w", err)
+	}
+	if fzfQuery != "" {
+		fzfOption = fzfOption + " --query " + fzfQuery
 	}
 	if _, ok := outputFormats[outputFormat]; !ok {
 		return nil, errorInvalidArgumentOutputFormat
