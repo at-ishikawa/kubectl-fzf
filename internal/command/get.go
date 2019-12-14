@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	errorInvalidArgumentResource       = errors.New("1st argument must be the kind of resources")
+	errorInvalidArgumentResource       = errors.New("1st argument must be the kind of kubernetes resources")
 	errorInvalidArgumentPreviewCommand = errors.New("preview format must be one of [describe, yaml]")
 	errorInvalidArgumentOutputFormat   = errors.New("output format must be one of [name, describe, yaml, json]")
 
@@ -72,7 +72,7 @@ func NewGetCommand(resource string, previewFormat string, outputFormat string, f
 		"name":     "{1}",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("invalid preview command: %w", err)
+		return nil, fmt.Errorf("invalid fzf preview command: %w", err)
 	}
 
 	fzfOption, err := getFzfOption(previewCommand)
@@ -130,7 +130,7 @@ func (c getCommand) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, io
 
 	out, err := runCommandWithFzf(ctx, commandLine, ioIn, ioErr)
 	if err != nil {
-		return fmt.Errorf("failed to run a get: %w", err)
+		return fmt.Errorf("failed to run the command: %w", err)
 	}
 
 	line := strings.TrimSpace(string(out))
@@ -160,12 +160,12 @@ func (c getCommand) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, io
 		}
 		out, err = runKubectl(ctx, args)
 		if err != nil {
-			return fmt.Errorf("failed to output: %w. Output command result: %s", err, string(out))
+			return fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
 		}
 	}
 
 	if _, err := ioOut.Write(out); err != nil {
-		return err
+		return fmt.Errorf("failed to output the result: %w", err)
 	}
 	return nil
 }
@@ -173,11 +173,11 @@ func (c getCommand) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, io
 func buildCommand(name string, command string, data map[string]interface{}) (string, error) {
 	tmpl, err := template.New(name).Parse(command)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse preview command: %w", err)
+		return "", fmt.Errorf("failed to parse the command: %w", err)
 	}
 	builder := strings.Builder{}
 	if err = tmpl.Execute(&builder, data); err != nil {
-		return "", fmt.Errorf("failed to parse preview command: %w", err)
+		return "", fmt.Errorf("failed to set data on the template of command: %w", err)
 	}
 	return builder.String(), nil
 }

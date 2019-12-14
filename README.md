@@ -39,7 +39,6 @@ $ kubectl fzf get pods
 | KUBECTL_FZF_FZF_OPTION  | The option for fzf  | --inline-info --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION  | $KUBECTL_FZF_FZF_PREVIEW_OPTION is not an environment variable |
 
 # TODOs
-* Error handlings
 * Help messages
 * Update README.md
 * krew support?
