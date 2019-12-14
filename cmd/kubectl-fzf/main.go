@@ -35,13 +35,11 @@ func main() {
 				return err
 			}
 
-			co, err := command.NewGetCommand(resource, previewFormat, outputFormat, fzfQuery)
+			cli, err := command.NewGetCli(resource, previewFormat, outputFormat, fzfQuery)
 			if err != nil {
 				return err
 			}
-
-			err = co.Run(context.Background(), os.Stdin, os.Stdout, os.Stderr)
-			if err != nil {
+			if err := cli.Run(context.Background(), os.Stdin, os.Stdout, os.Stderr); err != nil {
 				return err
 			}
 			return nil
