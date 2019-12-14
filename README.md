@@ -31,11 +31,14 @@ $ kubectl fzf get pods
 * kubectl
 
 
+# Environment variables
+
+| Name  | Description  | Default value  | Variable |  
+|---|---|---|---|
+| KUBECTL_FZF_FZF_BIND_OPTION  | The bind option for fzf  | ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down  | |
+| KUBECTL_FZF_FZF_OPTION  | The option for fzf  | --inline-info --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION  | $KUBECTL_FZF_FZF_PREVIEW_OPTION is not an environment variable |
+
 # TODOs
-* Read FZF environment variables
-* Define and use custom environment variables
-    * key bindings
-    * preview command
 * Pass custom arguments
 * Error handlings
 * Help messages
