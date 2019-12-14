@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-type getCommand struct {
+type getCli struct {
 	resource     string
 	outputFormat string
 	fzfOption    string
@@ -34,9 +34,9 @@ const (
 )
 
 var (
-	errorInvalidArgumentResource       = errors.New("1st argument must be the kind of resources")
-	errorInvalidArgumentPreviewCommand = errors.New("preview format must be one of [describe, yaml]")
-	errorInvalidArgumentOutputFormat   = errors.New("output format must be one of [name, describe, yaml, json]")
+	errorInvalidArgumentKubernetesResource = errors.New("1st argument must be the kind of kubernetes resources")
+	errorInvalidArgumentFZFPreviewCommand  = errors.New("preview format must be one of [describe, yaml]")
+	errorInvalidArgumentOutputFormat       = errors.New("output format must be one of [name, describe, yaml, json]")
 
 	runCommandWithFzf = func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) ([]byte, error) {
 		cmd := exec.CommandContext(ctx, "sh", "-c", commandLine)
@@ -59,20 +59,20 @@ var (
 	}
 )
 
-func NewGetCommand(resource string, previewFormat string, outputFormat string, fzfQuery string) (*getCommand, error) {
-	if resource == "" {
-		return nil, errorInvalidArgumentResource
+func NewGetCli(kubernetesResource string, previewFormat string, outputFormat string, fzfQuery string) (*getCli, error) {
+	if kubernetesResource == "" {
+		return nil, errorInvalidArgumentKubernetesResource
 	}
 	previewCommandTemplate, ok := previewCommands[previewFormat]
 	if !ok {
-		return nil, errorInvalidArgumentPreviewCommand
+		return nil, errorInvalidArgumentFZFPreviewCommand
 	}
-	previewCommand, err := buildCommand("preview", previewCommandTemplate, map[string]interface{}{
-		"resource": resource,
+	previewCommand, err := commandFromTemplate("preview", previewCommandTemplate, map[string]interface{}{
+		"resource": kubernetesResource,
 		"name":     "{1}",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("invalid preview command: %w", err)
+		return nil, fmt.Errorf("invalid fzf preview command: %w", err)
 	}
 
 	fzfOption, err := getFzfOption(previewCommand)
@@ -86,10 +86,10 @@ func NewGetCommand(resource string, previewFormat string, outputFormat string, f
 		return nil, errorInvalidArgumentOutputFormat
 	}
 
-	return &getCommand{
-		resource:     resource,
-		outputFormat: outputFormat,
+	return &getCli{
+		resource:     kubernetesResource,
 		fzfOption:    fzfOption,
+		outputFormat: outputFormat,
 	}, nil
 }
 
@@ -123,14 +123,11 @@ func getFzfOption(previewCommand string) (string, error) {
 	return fzfOption, nil
 }
 
-func (c getCommand) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
-	kubectlCommand := fmt.Sprintf("kubectl get %s", c.resource)
-	fzfCommandLine := fmt.Sprintf("fzf %s", c.fzfOption)
-	commandLine := fmt.Sprintf("%s | %s", kubectlCommand, fzfCommandLine)
-
-	out, err := runCommandWithFzf(ctx, commandLine, ioIn, ioErr)
+func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
+	command := fmt.Sprintf("kubectl get %s | fzf %s", c.resource, c.fzfOption)
+	out, err := runCommandWithFzf(ctx, command, ioIn, ioErr)
 	if err != nil {
-		return fmt.Errorf("failed to run a get: %w", err)
+		return fmt.Errorf("failed to run the command %s: %w", command, err)
 	}
 
 	line := strings.TrimSpace(string(out))
@@ -156,28 +153,30 @@ func (c getCommand) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, io
 				name,
 			}
 		} else {
+			// The output format has to be validated on NewGetCli function
+			// So this should never happens
 			panic(errorInvalidArgumentOutputFormat)
 		}
 		out, err = runKubectl(ctx, args)
 		if err != nil {
-			return fmt.Errorf("failed to output: %w. Output command result: %s", err, string(out))
+			return fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
 		}
 	}
 
 	if _, err := ioOut.Write(out); err != nil {
-		return err
+		return fmt.Errorf("failed to output the result: %w", err)
 	}
 	return nil
 }
 
-func buildCommand(name string, command string, data map[string]interface{}) (string, error) {
+func commandFromTemplate(name string, command string, data map[string]interface{}) (string, error) {
 	tmpl, err := template.New(name).Parse(command)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse preview command: %w", err)
+		return "", fmt.Errorf("failed to parse the command: %w", err)
 	}
 	builder := strings.Builder{}
 	if err = tmpl.Execute(&builder, data); err != nil {
-		return "", fmt.Errorf("failed to parse preview command: %w", err)
+		return "", fmt.Errorf("failed to set data on the template of command: %w", err)
 	}
 	return builder.String(), nil
 }

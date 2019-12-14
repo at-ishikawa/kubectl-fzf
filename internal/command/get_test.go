@@ -97,7 +97,7 @@ func TestNewGetCommand(t *testing.T) {
 		outputFormat   string
 		fzfQuery       string
 		envVars        map[string]string
-		want           *getCommand
+		want           *getCli
 		wantErr        error
 	}{
 		{
@@ -106,7 +106,7 @@ func TestNewGetCommand(t *testing.T) {
 			previewCommand: kubectlOutputFormatDescribe,
 			outputFormat:   kubectlOutputFormatYaml,
 			fzfQuery:       "",
-			want: &getCommand{
+			want: &getCli{
 				resource:     kubernetesResourcePods,
 				outputFormat: kubectlOutputFormatYaml,
 				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {1}", defaultFzfBindOption),
@@ -119,7 +119,7 @@ func TestNewGetCommand(t *testing.T) {
 			previewCommand: kubectlOutputFormatYaml,
 			outputFormat:   kubectlOutputFormatYaml,
 			fzfQuery:       "svc",
-			want: &getCommand{
+			want: &getCli{
 				resource:     kubernetesResourceService,
 				outputFormat: kubectlOutputFormatYaml,
 				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s --query svc", "kubectl get svc {1} -o yaml", defaultFzfBindOption),
@@ -132,7 +132,7 @@ func TestNewGetCommand(t *testing.T) {
 			previewCommand: kubectlOutputFormatYaml,
 			outputFormat:   kubectlOutputFormatYaml,
 			want:           nil,
-			wantErr:        errorInvalidArgumentResource,
+			wantErr:        errorInvalidArgumentKubernetesResource,
 		},
 		{
 			name:           "invalid preview command",
@@ -140,14 +140,14 @@ func TestNewGetCommand(t *testing.T) {
 			previewCommand: "unknown",
 			outputFormat:   kubectlOutputFormatYaml,
 			want:           nil,
-			wantErr:        errorInvalidArgumentPreviewCommand,
+			wantErr:        errorInvalidArgumentFZFPreviewCommand,
 		},
 		{
 			name:           "empty preview command",
 			resource:       kubernetesResourcePods,
 			previewCommand: "",
 			want:           nil,
-			wantErr:        errorInvalidArgumentPreviewCommand,
+			wantErr:        errorInvalidArgumentFZFPreviewCommand,
 		},
 		{
 			name:           "invalid output format",
@@ -190,7 +190,7 @@ func TestNewGetCommand(t *testing.T) {
 					require.NoError(t, os.Setenv(k, v))
 				}
 			}
-			got, gotErr := NewGetCommand(tc.resource, tc.previewCommand, tc.outputFormat, tc.fzfQuery)
+			got, gotErr := NewGetCli(tc.resource, tc.previewCommand, tc.outputFormat, tc.fzfQuery)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantErr, gotErr)
 		})
@@ -212,14 +212,14 @@ func TestRun(t *testing.T) {
 		name              string
 		runCommandWithFzf func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error)
 		runKubectl        func(ctx context.Context, args []string) (i []byte, e error)
-		sut               getCommand
+		sut               getCli
 		wantErr           error
 		wantIO            string
 		wantIOErr         string
 	}{
 		{
 			name: "name output",
-			sut: getCommand{
+			sut: getCli{
 				resource:     kubernetesResourcePods,
 				fzfOption:    fzfOption,
 				outputFormat: kubectlOutputFormatName,
@@ -232,7 +232,7 @@ func TestRun(t *testing.T) {
 		},
 		{
 			name: "yaml output",
-			sut: getCommand{
+			sut: getCli{
 				resource:     kubernetesResourcePods,
 				fzfOption:    fzfOption,
 				outputFormat: kubectlOutputFormatYaml,
@@ -254,7 +254,7 @@ func TestRun(t *testing.T) {
 		},
 		{
 			name: "json output",
-			sut: getCommand{
+			sut: getCli{
 				resource:     kubernetesResourcePods,
 				fzfOption:    fzfOption,
 				outputFormat: kubectlOutputFormatJSON,
@@ -276,7 +276,7 @@ func TestRun(t *testing.T) {
 		},
 		{
 			name: "describe output",
-			sut: getCommand{
+			sut: getCli{
 				resource:     kubernetesResourcePods,
 				fzfOption:    fzfOption,
 				outputFormat: kubectlOutputFormatDescribe,
@@ -296,7 +296,7 @@ func TestRun(t *testing.T) {
 		},
 		{
 			name: "command with fzf error",
-			sut: getCommand{
+			sut: getCli{
 				resource:     kubernetesResourcePods,
 				fzfOption:    fzfOption,
 				outputFormat: kubectlOutputFormatDescribe,
@@ -311,7 +311,7 @@ func TestRun(t *testing.T) {
 		},
 		{
 			name: "kubectl command error",
-			sut: getCommand{
+			sut: getCli{
 				resource:     kubernetesResourcePods,
 				fzfOption:    fzfOption,
 				outputFormat: kubectlOutputFormatDescribe,
@@ -403,7 +403,7 @@ func TestBuildCommand(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, gotErr := buildCommand(tc.templateName, tc.command, tc.data)
+			got, gotErr := commandFromTemplate(tc.templateName, tc.command, tc.data)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantIsErr, gotErr != nil)
 		})
