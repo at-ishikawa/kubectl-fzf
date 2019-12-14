@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 )
 
 type getCommand struct {
-	resource       string
-	previewCommand string
-	outputFormat   string
+	resource     string
+	outputFormat string
+	fzfOption    string
 }
 
 const (
@@ -25,6 +26,11 @@ const (
 
 	previewCommandDescribe = "kubectl describe {{ .resource }} {{ .name }}"
 	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml"
+
+	envNameFzfOption     = "KUBECTL_FZF_FZF_OPTION"
+	envNameFzfBindOption = "KUBECTL_FZF_FZF_BIND_OPTION"
+	defaultFzfBindOption = "ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down"
+	defaultFzfOption     = "--inline-info --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION"
 )
 
 var (
@@ -57,31 +63,66 @@ func NewGetCommand(resource string, previewFormat string, outputFormat string) (
 	if resource == "" {
 		return nil, errorInvalidArgumentResource
 	}
-	previewCommand, ok := previewCommands[previewFormat]
+	previewCommandTemplate, ok := previewCommands[previewFormat]
 	if !ok {
 		return nil, errorInvalidArgumentPreviewCommand
+	}
+	previewCommand, err := buildCommand("preview", previewCommandTemplate, map[string]interface{}{
+		"resource": resource,
+		"name":     "{1}",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("invalid preview command: %w", err)
+	}
+
+	fzfOption, err := getFzfOption(previewCommand)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fzf option: %w", err)
 	}
 	if _, ok := outputFormats[outputFormat]; !ok {
 		return nil, errorInvalidArgumentOutputFormat
 	}
 
 	return &getCommand{
-		resource:       resource,
-		previewCommand: previewCommand,
-		outputFormat:   outputFormat,
+		resource:     resource,
+		outputFormat: outputFormat,
+		fzfOption:    fzfOption,
 	}, nil
+}
+
+func getFzfOption(previewCommand string) (string, error) {
+	fzfOption := os.Getenv(envNameFzfOption)
+	if fzfOption == "" {
+		fzfOption = defaultFzfOption
+	}
+	options := map[string][]string{
+		"KUBECTL_FZF_FZF_PREVIEW_OPTION": {
+			previewCommand,
+		},
+		envNameFzfBindOption: {
+			os.Getenv(envNameFzfBindOption),
+			defaultFzfBindOption,
+		},
+	}
+	var invalidEnvVars []string
+	fzfOption = os.Expand(fzfOption, func(envName string) string {
+		for _, opt := range options[envName] {
+			if opt != "" {
+				return opt
+			}
+		}
+		invalidEnvVars = append(invalidEnvVars, envName)
+		return ""
+	})
+	if len(invalidEnvVars) != 0 {
+		return "", fmt.Errorf("%s has invalid environment variables: %s", envNameFzfOption, strings.Join(invalidEnvVars, ","))
+	}
+	return fzfOption, nil
 }
 
 func (c getCommand) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
 	kubectlCommand := fmt.Sprintf("kubectl get %s", c.resource)
-	previewCommand, err := buildCommand("preview", c.previewCommand, map[string]interface{}{
-		"resource": c.resource,
-		"name":     "{1}",
-	})
-	if err != nil {
-		return fmt.Errorf("invalid preview command: %w", err)
-	}
-	fzfCommandLine := fmt.Sprintf("fzf --inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", previewCommand)
+	fzfCommandLine := fmt.Sprintf("fzf %s", c.fzfOption)
 	commandLine := fmt.Sprintf("%s | %s", kubectlCommand, fzfCommandLine)
 
 	out, err := runCommandWithFzf(ctx, commandLine, ioIn, ioErr)

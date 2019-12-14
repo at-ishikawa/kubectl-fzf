@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -28,12 +29,73 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestGetFzfOption(t *testing.T) {
+	testCases := []struct {
+		name           string
+		previewCommand string
+		envVars        map[string]string
+		want           string
+		wantErr        error
+	}{
+		{
+			name:           "no env vars",
+			previewCommand: "kubectl describe pods {{1}}",
+			want:           fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {{1}}", defaultFzfBindOption),
+		},
+		{
+			name:           "all correct env vars",
+			previewCommand: "kubectl describe pods {{1}}",
+			envVars: map[string]string{
+				envNameFzfOption:     fmt.Sprintf("--preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --bind $%s", envNameFzfBindOption),
+				envNameFzfBindOption: "ctrl-k:kill-line",
+			},
+			want: fmt.Sprintf("--preview '%s' --bind %s", "kubectl describe pods {{1}}", "ctrl-k:kill-line"),
+		},
+		{
+			name:           "no env vars",
+			previewCommand: "unused preview command",
+			envVars: map[string]string{
+				envNameFzfOption:     "--inline-info",
+				envNameFzfBindOption: "unused",
+			},
+			want: "--inline-info",
+		},
+		{
+			name:           "invalid env vars in KUBECTL_FZF_FZF_OPTION",
+			previewCommand: "unused preview command",
+			envVars: map[string]string{
+				envNameFzfOption:     "--inline-info $UNKNOWN_ENV_NAME",
+				envNameFzfBindOption: "unused",
+			},
+			want:    "",
+			wantErr: fmt.Errorf("%s has invalid environment variables: UNKNOWN_ENV_NAME", envNameFzfOption),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				for k := range tc.envVars {
+					require.NoError(t, os.Unsetenv(k))
+				}
+			}()
+			for k, v := range tc.envVars {
+				require.NoError(t, os.Setenv(k, v))
+			}
+			got, gotErr := getFzfOption(tc.previewCommand)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantErr, gotErr)
+		})
+	}
+}
+
 func TestNewGetCommand(t *testing.T) {
 	testCases := []struct {
 		name           string
 		resource       string
 		previewCommand string
 		outputFormat   string
+		envVars        map[string]string
 		want           *getCommand
 		wantErr        error
 	}{
@@ -42,16 +104,24 @@ func TestNewGetCommand(t *testing.T) {
 			resource:       kubernetesResourcePods,
 			previewCommand: kubectlOutputFormatDescribe,
 			outputFormat:   kubectlOutputFormatYaml,
-			want:           &getCommand{resource: kubernetesResourcePods, previewCommand: previewCommandDescribe, outputFormat: kubectlOutputFormatYaml},
-			wantErr:        nil,
+			want: &getCommand{
+				resource:     kubernetesResourcePods,
+				outputFormat: kubectlOutputFormatYaml,
+				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {1}", defaultFzfBindOption),
+			},
+			wantErr: nil,
 		},
 		{
 			name:           "get yaml preview command",
 			resource:       kubernetesResourceService,
 			previewCommand: kubectlOutputFormatYaml,
 			outputFormat:   kubectlOutputFormatYaml,
-			want:           &getCommand{resource: kubernetesResourceService, previewCommand: previewCommandYaml, outputFormat: kubectlOutputFormatYaml},
-			wantErr:        nil,
+			want: &getCommand{
+				resource:     kubernetesResourceService,
+				outputFormat: kubectlOutputFormatYaml,
+				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl get svc {1} -o yaml", defaultFzfBindOption),
+			},
+			wantErr: nil,
 		},
 		{
 			name:           "empty yaml",
@@ -92,10 +162,31 @@ func TestNewGetCommand(t *testing.T) {
 			want:           nil,
 			wantErr:        errorInvalidArgumentOutputFormat,
 		},
+		{
+			name:           "KUBECTL_FZF_FZF_OPTION includes invalid env",
+			resource:       kubernetesResourcePods,
+			previewCommand: kubectlOutputFormatYaml,
+			outputFormat:   kubectlOutputFormatYaml,
+			envVars: map[string]string{
+				envNameFzfOption: "$UNKNOWN_ENV1, $UNKNOWN_ENV2",
+			},
+			want:    nil,
+			wantErr: fmt.Errorf("failed to get fzf option: %w", fmt.Errorf("%s has invalid environment variables: %s", envNameFzfOption, "UNKNOWN_ENV1,UNKNOWN_ENV2")),
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			if len(tc.envVars) > 0 {
+				defer func() {
+					for k := range tc.envVars {
+						require.NoError(t, os.Unsetenv(k))
+					}
+				}()
+				for k, v := range tc.envVars {
+					require.NoError(t, os.Setenv(k, v))
+				}
+			}
 			got, gotErr := NewGetCommand(tc.resource, tc.previewCommand, tc.outputFormat)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantErr, gotErr)
@@ -104,10 +195,11 @@ func TestNewGetCommand(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
+	fzfOption := "--inline-info"
 	defaultRunCommand := func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
-		assert.Equal(t, fmt.Sprintf("%s | %s",
+		assert.Equal(t, fmt.Sprintf("%s | fzf %s",
 			"kubectl get pods",
-			"fzf --inline-info --layout reverse --preview 'preview' --preview-window down:70% --header-lines 1 --bind ctrl-k:kill-line,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down",
+			fzfOption,
 		), commandLine)
 		return bytes.NewBufferString("pod 2/2 Running 2d").Bytes(), nil
 	}
@@ -125,9 +217,9 @@ func TestRun(t *testing.T) {
 		{
 			name: "name output",
 			sut: getCommand{
-				resource:       kubernetesResourcePods,
-				previewCommand: "preview",
-				outputFormat:   kubectlOutputFormatName,
+				resource:     kubernetesResourcePods,
+				fzfOption:    fzfOption,
+				outputFormat: kubectlOutputFormatName,
 			},
 			runCommandWithFzf: defaultRunCommand,
 			runKubectl:        nil,
@@ -138,9 +230,9 @@ func TestRun(t *testing.T) {
 		{
 			name: "yaml output",
 			sut: getCommand{
-				resource:       kubernetesResourcePods,
-				previewCommand: "preview",
-				outputFormat:   kubectlOutputFormatYaml,
+				resource:     kubernetesResourcePods,
+				fzfOption:    fzfOption,
+				outputFormat: kubectlOutputFormatYaml,
 			},
 			runCommandWithFzf: defaultRunCommand,
 			runKubectl: func(ctx context.Context, args []string) (i []byte, e error) {
@@ -160,9 +252,9 @@ func TestRun(t *testing.T) {
 		{
 			name: "json output",
 			sut: getCommand{
-				resource:       kubernetesResourcePods,
-				previewCommand: "preview",
-				outputFormat:   kubectlOutputFormatJSON,
+				resource:     kubernetesResourcePods,
+				fzfOption:    fzfOption,
+				outputFormat: kubectlOutputFormatJSON,
 			},
 			runCommandWithFzf: defaultRunCommand,
 			runKubectl: func(ctx context.Context, args []string) (i []byte, e error) {
@@ -182,9 +274,9 @@ func TestRun(t *testing.T) {
 		{
 			name: "describe output",
 			sut: getCommand{
-				resource:       kubernetesResourcePods,
-				previewCommand: "preview",
-				outputFormat:   kubectlOutputFormatDescribe,
+				resource:     kubernetesResourcePods,
+				fzfOption:    fzfOption,
+				outputFormat: kubectlOutputFormatDescribe,
 			},
 			runCommandWithFzf: defaultRunCommand,
 			runKubectl: func(ctx context.Context, args []string) (i []byte, e error) {
@@ -202,9 +294,9 @@ func TestRun(t *testing.T) {
 		{
 			name: "command with fzf error",
 			sut: getCommand{
-				resource:       kubernetesResourcePods,
-				previewCommand: "preview",
-				outputFormat:   kubectlOutputFormatDescribe,
+				resource:     kubernetesResourcePods,
+				fzfOption:    fzfOption,
+				outputFormat: kubectlOutputFormatDescribe,
 			},
 			runCommandWithFzf: func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
 				return nil, defaultWantErr
@@ -217,9 +309,9 @@ func TestRun(t *testing.T) {
 		{
 			name: "kubectl command error",
 			sut: getCommand{
-				resource:       kubernetesResourcePods,
-				previewCommand: "preview",
-				outputFormat:   kubectlOutputFormatDescribe,
+				resource:     kubernetesResourcePods,
+				fzfOption:    fzfOption,
+				outputFormat: kubectlOutputFormatDescribe,
 			},
 			runCommandWithFzf: defaultRunCommand,
 			runKubectl: func(ctx context.Context, args []string) (i []byte, e error) {
