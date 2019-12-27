@@ -229,7 +229,7 @@ func TestRun(t *testing.T) {
 			runCommandWithFzf: defaultRunCommand,
 			runKubectl:        nil,
 			wantErr:           nil,
-			wantIO:            "pod",
+			wantIO:            "pod\n",
 			wantIOErr:         "",
 		},
 		{

@@ -142,7 +142,7 @@ func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr 
 	name := strings.TrimSpace(columns[0])
 
 	if c.outputFormat == kubectlOutputFormatName {
-		out = bytes.NewBufferString(name).Bytes()
+		out = bytes.NewBufferString(name + "\n").Bytes()
 	} else {
 		var args []string
 		if c.outputFormat == kubectlOutputFormatDescribe {
