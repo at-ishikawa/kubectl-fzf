@@ -128,7 +128,7 @@ func TestNewGetCli(t *testing.T) {
 	}
 }
 
-func TestRun(t *testing.T) {
+func TestGetCli_Run(t *testing.T) {
 	fzfOption := "--inline-info"
 	defaultRunCommand := func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
 		assert.Equal(t, fmt.Sprintf("%s | fzf %s",
