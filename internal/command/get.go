@@ -5,9 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
+
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 )
@@ -18,44 +17,18 @@ type getCli struct {
 	fzfOption    string
 }
 
-const (
-	kubectlOutputFormatName     = "name"
-	kubectlOutputFormatDescribe = "describe"
-	kubectlOutputFormatYaml     = "yaml"
-	kubectlOutputFormatJSON     = "json"
-
-	previewCommandDescribe = "kubectl describe {{ .resource }} {{ .name }}"
-	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml"
-
-	envNameFzfOption     = "KUBECTL_FZF_FZF_OPTION"
-	envNameFzfBindOption = "KUBECTL_FZF_FZF_BIND_OPTION"
-	defaultFzfBindOption = "ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down"
-	defaultFzfOption     = "--inline-info --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION"
-)
-
 var (
-	errorInvalidArgumentKubernetesResource = errors.New("1st argument must be the kind of kubernetes resources")
-	errorInvalidArgumentFZFPreviewCommand  = errors.New("preview format must be one of [describe, yaml]")
-	errorInvalidArgumentOutputFormat       = errors.New("output format must be one of [name, describe, yaml, json]")
+	errorInvalidArgumentFZFPreviewCommand = errors.New("preview format must be one of [describe, yaml]")
+	errorInvalidArgumentOutputFormat      = errors.New("output format must be one of [name, yaml, json]")
 
-	runCommandWithFzf = func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) ([]byte, error) {
-		cmd := exec.CommandContext(ctx, "sh", "-c", commandLine)
-		cmd.Stderr = ioErr
-		cmd.Stdin = ioIn
-		return cmd.Output()
-	}
-	runKubectl = func(ctx context.Context, args []string) ([]byte, error) {
-		return exec.CommandContext(ctx, "kubectl", args...).CombinedOutput()
-	}
-	previewCommands = map[string]string{
+	getCliPreviewCommands = map[string]string{
 		kubectlOutputFormatDescribe: previewCommandDescribe,
 		kubectlOutputFormatYaml:     previewCommandYaml,
 	}
-	outputFormats = map[string]struct{}{
-		kubectlOutputFormatName:     {},
-		kubectlOutputFormatDescribe: {},
-		kubectlOutputFormatYaml:     {},
-		kubectlOutputFormatJSON:     {},
+	getCliOutputFormats = map[string]struct{}{
+		kubectlOutputFormatName: {},
+		kubectlOutputFormatYaml: {},
+		kubectlOutputFormatJSON: {},
 	}
 )
 
@@ -63,7 +36,7 @@ func NewGetCli(kubernetesResource string, previewFormat string, outputFormat str
 	if kubernetesResource == "" {
 		return nil, errorInvalidArgumentKubernetesResource
 	}
-	previewCommandTemplate, ok := previewCommands[previewFormat]
+	previewCommandTemplate, ok := getCliPreviewCommands[previewFormat]
 	if !ok {
 		return nil, errorInvalidArgumentFZFPreviewCommand
 	}
@@ -82,7 +55,7 @@ func NewGetCli(kubernetesResource string, previewFormat string, outputFormat str
 	if fzfQuery != "" {
 		fzfOption = fzfOption + " --query " + fzfQuery
 	}
-	if _, ok := outputFormats[outputFormat]; !ok {
+	if _, ok := getCliOutputFormats[outputFormat]; !ok {
 		return nil, errorInvalidArgumentOutputFormat
 	}
 
@@ -91,36 +64,6 @@ func NewGetCli(kubernetesResource string, previewFormat string, outputFormat str
 		fzfOption:    fzfOption,
 		outputFormat: outputFormat,
 	}, nil
-}
-
-func getFzfOption(previewCommand string) (string, error) {
-	fzfOption := os.Getenv(envNameFzfOption)
-	if fzfOption == "" {
-		fzfOption = defaultFzfOption
-	}
-	options := map[string][]string{
-		"KUBECTL_FZF_FZF_PREVIEW_OPTION": {
-			previewCommand,
-		},
-		envNameFzfBindOption: {
-			os.Getenv(envNameFzfBindOption),
-			defaultFzfBindOption,
-		},
-	}
-	var invalidEnvVars []string
-	fzfOption = os.Expand(fzfOption, func(envName string) string {
-		for _, opt := range options[envName] {
-			if opt != "" {
-				return opt
-			}
-		}
-		invalidEnvVars = append(invalidEnvVars, envName)
-		return ""
-	})
-	if len(invalidEnvVars) != 0 {
-		return "", fmt.Errorf("%s has invalid environment variables: %s", envNameFzfOption, strings.Join(invalidEnvVars, ","))
-	}
-	return fzfOption, nil
 }
 
 func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
@@ -145,13 +88,7 @@ func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr 
 		out = bytes.NewBufferString(name + "\n").Bytes()
 	} else {
 		var args []string
-		if c.outputFormat == kubectlOutputFormatDescribe {
-			args = []string{
-				"describe",
-				c.resource,
-				name,
-			}
-		} else if c.outputFormat == kubectlOutputFormatJSON || c.outputFormat == kubectlOutputFormatYaml {
+		if c.outputFormat == kubectlOutputFormatJSON || c.outputFormat == kubectlOutputFormatYaml {
 			args = []string{
 				"get",
 				c.resource,
@@ -174,16 +111,4 @@ func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr 
 		return fmt.Errorf("failed to output the result: %w", err)
 	}
 	return nil
-}
-
-func commandFromTemplate(name string, command string, data map[string]interface{}) (string, error) {
-	tmpl, err := template.New(name).Parse(command)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse the command: %w", err)
-	}
-	builder := strings.Builder{}
-	if err = tmpl.Execute(&builder, data); err != nil {
-		return "", fmt.Errorf("failed to set data on the template of command: %w", err)
-	}
-	return builder.String(), nil
 }
