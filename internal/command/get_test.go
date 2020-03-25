@@ -20,77 +20,7 @@ const (
 	kubernetesResourceService = "svc"
 )
 
-func TestMain(m *testing.M) {
-	backupRunKubectlFunc := runKubectl
-	backupRunCommandWithFzf := runCommandWithFzf
-	defer func() {
-		runKubectl = backupRunKubectlFunc
-		runCommandWithFzf = backupRunCommandWithFzf
-	}()
-	os.Exit(m.Run())
-}
-
-func TestGetFzfOption(t *testing.T) {
-	testCases := []struct {
-		name           string
-		previewCommand string
-		envVars        map[string]string
-		want           string
-		wantErr        error
-	}{
-		{
-			name:           "no env vars",
-			previewCommand: "kubectl describe pods {{1}}",
-			want:           fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {{1}}", defaultFzfBindOption),
-		},
-		{
-			name:           "all correct env vars",
-			previewCommand: "kubectl describe pods {{1}}",
-			envVars: map[string]string{
-				envNameFzfOption:     fmt.Sprintf("--preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --bind $%s", envNameFzfBindOption),
-				envNameFzfBindOption: "ctrl-k:kill-line",
-			},
-			want: fmt.Sprintf("--preview '%s' --bind %s", "kubectl describe pods {{1}}", "ctrl-k:kill-line"),
-		},
-		{
-			name:           "no env vars",
-			previewCommand: "unused preview command",
-			envVars: map[string]string{
-				envNameFzfOption:     "--inline-info",
-				envNameFzfBindOption: "unused",
-			},
-			want: "--inline-info",
-		},
-		{
-			name:           "invalid env vars in KUBECTL_FZF_FZF_OPTION",
-			previewCommand: "unused preview command",
-			envVars: map[string]string{
-				envNameFzfOption:     "--inline-info $UNKNOWN_ENV_NAME",
-				envNameFzfBindOption: "unused",
-			},
-			want:    "",
-			wantErr: fmt.Errorf("%s has invalid environment variables: UNKNOWN_ENV_NAME", envNameFzfOption),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			defer func() {
-				for k := range tc.envVars {
-					require.NoError(t, os.Unsetenv(k))
-				}
-			}()
-			for k, v := range tc.envVars {
-				require.NoError(t, os.Setenv(k, v))
-			}
-			got, gotErr := getFzfOption(tc.previewCommand)
-			assert.Equal(t, tc.want, got)
-			assert.Equal(t, tc.wantErr, gotErr)
-		})
-	}
-}
-
-func TestNewGetCommand(t *testing.T) {
+func TestNewGetCli(t *testing.T) {
 	testCases := []struct {
 		name           string
 		resource       string
@@ -198,7 +128,7 @@ func TestNewGetCommand(t *testing.T) {
 	}
 }
 
-func TestRun(t *testing.T) {
+func TestGetCli_Run(t *testing.T) {
 	fzfOption := "--inline-info"
 	defaultRunCommand := func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
 		assert.Equal(t, fmt.Sprintf("%s | fzf %s",
@@ -277,31 +207,11 @@ func TestRun(t *testing.T) {
 			wantIOErr: "",
 		},
 		{
-			name: "describe output",
-			sut: getCli{
-				resource:     kubernetesResourcePods,
-				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatDescribe,
-			},
-			runCommandWithFzf: defaultRunCommand,
-			runKubectl: func(ctx context.Context, args []string) (i []byte, e error) {
-				assert.Equal(t, []string{
-					"describe",
-					kubernetesResourcePods,
-					"pod",
-				}, args)
-				return bytes.NewBufferString("Name: pod").Bytes(), nil
-			},
-			wantErr:   nil,
-			wantIO:    "Name: pod",
-			wantIOErr: "",
-		},
-		{
 			name: "command with fzf error",
 			sut: getCli{
 				resource:     kubernetesResourcePods,
 				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatDescribe,
+				outputFormat: kubectlOutputFormatYaml,
 			},
 			runCommandWithFzf: func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
 				return nil, defaultWantErr
@@ -316,7 +226,7 @@ func TestRun(t *testing.T) {
 			sut: getCli{
 				resource:     kubernetesResourcePods,
 				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatDescribe,
+				outputFormat: kubectlOutputFormatYaml,
 			},
 			runCommandWithFzf: func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
 				return nil, &exitErr
@@ -331,7 +241,7 @@ func TestRun(t *testing.T) {
 			sut: getCli{
 				resource:     kubernetesResourcePods,
 				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatDescribe,
+				outputFormat: kubectlOutputFormatYaml,
 			},
 			runCommandWithFzf: defaultRunCommand,
 			runKubectl: func(ctx context.Context, args []string) (i []byte, e error) {
@@ -354,75 +264,6 @@ func TestRun(t *testing.T) {
 			assert.True(t, errors.Is(gotErr, tc.wantErr))
 			assert.Equal(t, tc.wantIO, gotIOOut.String())
 			assert.Equal(t, tc.wantIOErr, gotIOErr.String())
-		})
-	}
-}
-
-func TestBuildCommand(t *testing.T) {
-	testCases := []struct {
-		name         string
-		templateName string
-		command      string
-		data         map[string]interface{}
-		want         string
-		wantIsErr    bool
-	}{
-		{
-			name:         "template",
-			templateName: "template",
-			command:      "kubectl {{ .command }} {{ .resource }}",
-			data: map[string]interface{}{
-				"command":  "get",
-				"resource": "pods",
-			},
-			want:      "kubectl get pods",
-			wantIsErr: false,
-		},
-		{
-			name:         "no template",
-			templateName: "",
-			command:      "{{ .name }}",
-			data: map[string]interface{}{
-				"name": "fzf",
-			},
-			want:      "fzf",
-			wantIsErr: false,
-		},
-		{
-			name:         "invalid command",
-			templateName: "template",
-			command:      "{{ .name }",
-			data: map[string]interface{}{
-				"name": "name",
-			},
-			want:      "",
-			wantIsErr: true,
-		},
-		{
-			name:         "wrong parameter",
-			templateName: "template",
-			command:      "wrong {{ .name }}",
-			data: map[string]interface{}{
-				"unknown": "unknown",
-			},
-			want:      "wrong ",
-			wantIsErr: false,
-		},
-		{
-			name:         "no parameter",
-			templateName: "template",
-			command:      "no {{ .name }}",
-			data:         nil,
-			want:         "no ",
-			wantIsErr:    false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, gotErr := commandFromTemplate(tc.templateName, tc.command, tc.data)
-			assert.Equal(t, tc.want, got)
-			assert.Equal(t, tc.wantIsErr, gotErr != nil)
 		})
 	}
 }

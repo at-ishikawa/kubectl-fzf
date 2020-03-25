@@ -15,6 +15,9 @@ func main() {
 		Use:   "kubectl-fzf [command]",
 		Short: "kubectl commands with fzf",
 	}
+	commonFlags := cli.PersistentFlags()
+	commonFlags.StringP("query", "q", "", "Start the fzf with this query")
+
 	getCommand := cobra.Command{
 		Use:   "get [resource]",
 		Short: "kubectl get resources with fzf",
@@ -45,12 +48,35 @@ func main() {
 			return nil
 		},
 	}
-	flags := getCommand.Flags()
-	flags.StringP("preview-format", "p", "describe", "The format of preview")
-	flags.StringP("output", "o", "name", "The output format")
-	flags.StringP("query", "q", "", "Start the fzf with this query")
-
+	getCommandFlags := getCommand.Flags()
+	getCommandFlags.StringP("preview-format", "p", "describe", "The format of preview")
+	getCommandFlags.StringP("output", "o", "name", "The output format")
 	cli.AddCommand(&getCommand)
+
+	describeCommand := cobra.Command{
+		Use:   "describe [resource]",
+		Short: "kubectl describe resources with fzf",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resource := args[0]
+			flags := cmd.Flags()
+			fzfQuery, err := flags.GetString("query")
+			if err != nil {
+				return err
+			}
+
+			cli, err := command.NewDescribeCli(resource, fzfQuery)
+			if err != nil {
+				return err
+			}
+			if err := cli.Run(context.Background(), os.Stdin, os.Stdout, os.Stderr); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cli.AddCommand(&describeCommand)
+
 	if err := cli.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
