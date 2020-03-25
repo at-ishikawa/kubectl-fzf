@@ -20,6 +20,7 @@ $ go get -u github.com/at-ishikawa/kubectl-fzf/cmd/kubectl-fzf
 ```
 
 ## Usage
+### kubectl fzf get
 ```
 $ kubectl fzf get --help
 kubectl get resources with fzf
@@ -32,6 +33,21 @@ Flags:
   -o, --output string           The output format (default "name")
   -p, --preview-format string   The format of preview (default "describe")
   -q, --query string            Start the fzf with this query
+```
+
+### kubectl fzf describe
+```
+> kubectl fzf describe --help
+kubectl describe resources with fzf
+
+Usage:
+  kubectl-fzf describe [resource] [flags]
+
+Flags:
+  -h, --help   help for describe
+
+Global Flags:
+  -q, --query string   Start the fzf with this query
 ```
 
 ## Requirements
