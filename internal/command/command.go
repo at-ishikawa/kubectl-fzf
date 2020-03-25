@@ -35,10 +35,59 @@ var (
 		cmd.Stdin = ioIn
 		return cmd.Output()
 	}
+	// Deprecated
 	runKubectl = func(ctx context.Context, args []string) ([]byte, error) {
 		return exec.CommandContext(ctx, "kubectl", args...).CombinedOutput()
 	}
 )
+
+type Kubectl interface {
+	getCommand(operation string, name string, options map[string]string) string
+	run(ctx context.Context, operation string, name string, options map[string]string) ([]byte, error)
+}
+
+type kubectl struct {
+	resource  string
+	namespace string
+}
+
+func NewKubectl(kubernetesResource string, kubernetesNamespace string) (Kubectl, error) {
+	if kubernetesResource == "" {
+		return nil, errorInvalidArgumentKubernetesResource
+	}
+	return &kubectl{
+		resource:  kubernetesResource,
+		namespace: kubernetesNamespace,
+	}, nil
+}
+
+func (k kubectl) run(ctx context.Context, operation string, name string, options map[string]string) ([]byte, error) {
+	out, err := exec.CommandContext(ctx, "kubectl", k.getArguments(operation, name, options)...).CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
+	}
+	return out, nil
+}
+
+func (k kubectl) getCommand(operation string, name string, options map[string]string) string {
+	return "kubectl " + strings.Join(k.getArguments(operation, name, options), " ")
+}
+func (k kubectl) getArguments(operation string, name string, options map[string]string) []string {
+	args := []string{
+		operation,
+		k.resource,
+	}
+	if name != "" {
+		args = append(args, name)
+	}
+	if k.namespace != "" {
+		args = append(args, "-n", k.namespace)
+	}
+	for k, v := range options {
+		args = append(args, k, v)
+	}
+	return args
+}
 
 func commandFromTemplate(name string, command string, data map[string]interface{}) (string, error) {
 	tmpl, err := template.New(name).Parse(command)

@@ -74,7 +74,11 @@ func main() {
 				return err
 			}
 
-			cli, err := command.NewDescribeCli(resource, namespace, fzfQuery)
+			kubectl, err := command.NewKubectl(resource, namespace)
+			if err != nil {
+				return err
+			}
+			cli, err := command.NewDescribeCli(kubectl, fzfQuery)
 			if err != nil {
 				return err
 			}
