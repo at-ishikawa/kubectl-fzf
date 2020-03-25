@@ -9,20 +9,20 @@
 This plugin is the similar to the next command (fish).
 
 ```fish
-$ set -l resource pods resource
-$ kubectl get $resource | fzf --inline-info --layout=reverse --preview="kubectl describe $resource {1}" --header-lines 1 --preview-window=down:70% --bind $key_bindings | awk '{ print $1 }' | string trim
+> set -l resource pods resource
+> kubectl get $resource | fzf --inline-info --layout=reverse --preview="kubectl describe $resource {1}" --header-lines 1 --preview-window=down:70% --bind $key_bindings | awk '{ print $1 }' | string trim
 ```
 
 ## Install
 You must install `go >= v1.13`.
 ```shell script
-$ go get -u github.com/at-ishikawa/kubectl-fzf/cmd/kubectl-fzf
+> go get -u github.com/at-ishikawa/kubectl-fzf/cmd/kubectl-fzf
 ```
 
 ## Usage
 ### kubectl fzf get
 ```
-$ kubectl fzf get --help
+> kubectl fzf get --help
 kubectl get resources with fzf
 
 Usage:
@@ -32,7 +32,10 @@ Flags:
   -h, --help                    help for get
   -o, --output string           The output format (default "name")
   -p, --preview-format string   The format of preview (default "describe")
-  -q, --query string            Start the fzf with this query
+
+Global Flags:
+  -n, --namespace string   Kubernetes namespace
+  -q, --query string       Start the fzf with this query
 ```
 
 ### kubectl fzf describe
@@ -47,7 +50,8 @@ Flags:
   -h, --help   help for describe
 
 Global Flags:
-  -q, --query string   Start the fzf with this query
+  -n, --namespace string   Kubernetes namespace
+  -q, --query string       Start the fzf with this query
 ```
 
 ## Requirements
