@@ -24,6 +24,7 @@ func TestNewGetCli(t *testing.T) {
 	testCases := []struct {
 		name           string
 		resource       string
+		namespace      string
 		previewCommand string
 		outputFormat   string
 		fzfQuery       string
@@ -34,13 +35,15 @@ func TestNewGetCli(t *testing.T) {
 		{
 			name:           "desc preview command",
 			resource:       kubernetesResourcePods,
+			namespace:      "default",
 			previewCommand: kubectlOutputFormatDescribe,
 			outputFormat:   kubectlOutputFormatYaml,
 			fzfQuery:       "",
 			want: &getCli{
 				resource:     kubernetesResourcePods,
+				namespace:    "default",
 				outputFormat: kubectlOutputFormatYaml,
-				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {1}", defaultFzfBindOption),
+				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {1} -n default", defaultFzfBindOption),
 			},
 			wantErr: nil,
 		},
@@ -121,7 +124,7 @@ func TestNewGetCli(t *testing.T) {
 					require.NoError(t, os.Setenv(k, v))
 				}
 			}
-			got, gotErr := NewGetCli(tc.resource, tc.previewCommand, tc.outputFormat, tc.fzfQuery)
+			got, gotErr := NewGetCli(tc.resource, tc.namespace, tc.previewCommand, tc.outputFormat, tc.fzfQuery)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantErr, gotErr)
 		})
@@ -130,9 +133,11 @@ func TestNewGetCli(t *testing.T) {
 
 func TestGetCli_Run(t *testing.T) {
 	fzfOption := "--inline-info"
+	defaultGetCommand := func(_ context.Context, _ []string) ([]byte, error) {
+		return bytes.NewBufferString("Name\npod").Bytes(), nil
+	}
 	defaultRunCommand := func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
-		assert.Equal(t, fmt.Sprintf("%s | fzf %s",
-			"kubectl get pods",
+		assert.Equal(t, fmt.Sprintf("echo 'Name\npod' | fzf %s",
 			fzfOption,
 		), commandLine)
 		return bytes.NewBufferString("pod 2/2 Running 2d").Bytes(), nil
@@ -157,7 +162,7 @@ func TestGetCli_Run(t *testing.T) {
 				outputFormat: kubectlOutputFormatName,
 			},
 			runCommandWithFzf: defaultRunCommand,
-			runKubectl:        nil,
+			runKubectl:        defaultGetCommand,
 			wantErr:           nil,
 			wantIO:            "pod\n",
 			wantIOErr:         "",
@@ -216,10 +221,26 @@ func TestGetCli_Run(t *testing.T) {
 			runCommandWithFzf: func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
 				return nil, defaultWantErr
 			},
-			runKubectl: nil,
+			runKubectl: defaultGetCommand,
 			wantErr:    defaultWantErr,
 			wantIO:     "",
 			wantIOErr:  "",
+		},
+		{
+			name: "invalid namespace",
+			sut: getCli{
+				resource:     kubernetesResourcePods,
+				namespace:    "invalid",
+				fzfOption:    fzfOption,
+				outputFormat: kubectlOutputFormatYaml,
+			},
+			runCommandWithFzf: defaultRunCommand,
+			runKubectl: func(ctx context.Context, args []string) (i []byte, e error) {
+				return bytes.NewBufferString("No resources found").Bytes(), nil
+			},
+			wantErr:   &exitErr,
+			wantIO:    "",
+			wantIOErr: "",
 		},
 		{
 			name: "command with fzf exit error (not 130)",
@@ -231,7 +252,7 @@ func TestGetCli_Run(t *testing.T) {
 			runCommandWithFzf: func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
 				return nil, &exitErr
 			},
-			runKubectl: nil,
+			runKubectl: defaultGetCommand,
 			wantErr:    &exitErr,
 			wantIO:     "",
 			wantIOErr:  "",

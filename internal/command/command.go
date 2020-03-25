@@ -17,8 +17,8 @@ const (
 	kubectlOutputFormatYaml     = "yaml"
 	kubectlOutputFormatJSON     = "json"
 
-	previewCommandDescribe = "kubectl describe {{ .resource }} {{ .name }}"
-	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml"
+	previewCommandDescribe = "kubectl describe {{ .resource }} {{ .name }}{{ .options }}"
+	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml{{ .options }}"
 
 	envNameFzfOption     = "KUBECTL_FZF_FZF_OPTION"
 	envNameFzfBindOption = "KUBECTL_FZF_FZF_BIND_OPTION"

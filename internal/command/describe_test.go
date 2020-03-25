@@ -17,20 +17,33 @@ import (
 
 func TestNewDescribeCli(t *testing.T) {
 	testCases := []struct {
-		name     string
-		resource string
-		fzfQuery string
-		envVars  map[string]string
-		want     *describeCli
-		wantErr  error
+		name      string
+		resource  string
+		namespace string
+		fzfQuery  string
+		envVars   map[string]string
+		want      *describeCli
+		wantErr   error
 	}{
 		{
-			name:     "desc preview command",
-			resource: kubernetesResourcePods,
-			fzfQuery: "",
+			name:      "desc preview command",
+			resource:  kubernetesResourcePods,
+			namespace: "default",
+			fzfQuery:  "",
 			want: &describeCli{
 				resource:  kubernetesResourcePods,
-				fzfOption: fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {1}", defaultFzfBindOption),
+				namespace: "default",
+				fzfOption: fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {1} -n default", defaultFzfBindOption),
+			},
+			wantErr: nil,
+		},
+		{
+			name:     "no namespace",
+			resource: kubernetesResourceService,
+			fzfQuery: "",
+			want: &describeCli{
+				resource:  kubernetesResourceService,
+				fzfOption: fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe svc {1}", defaultFzfBindOption),
 			},
 			wantErr: nil,
 		},
@@ -64,7 +77,7 @@ func TestNewDescribeCli(t *testing.T) {
 					require.NoError(t, os.Setenv(k, v))
 				}
 			}
-			got, gotErr := NewDescribeCli(tc.resource, tc.fzfQuery)
+			got, gotErr := NewDescribeCli(tc.resource, tc.namespace, tc.fzfQuery)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantErr, gotErr)
 		})

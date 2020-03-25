@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"io"
 	"os/exec"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 type getCli struct {
 	resource     string
+	namespace    string
 	outputFormat string
 	fzfOption    string
 }
@@ -32,7 +32,7 @@ var (
 	}
 )
 
-func NewGetCli(kubernetesResource string, previewFormat string, outputFormat string, fzfQuery string) (*getCli, error) {
+func NewGetCli(kubernetesResource string, kubernetesNamespace string, previewFormat string, outputFormat string, fzfQuery string) (*getCli, error) {
 	if kubernetesResource == "" {
 		return nil, errorInvalidArgumentKubernetesResource
 	}
@@ -40,9 +40,18 @@ func NewGetCli(kubernetesResource string, previewFormat string, outputFormat str
 	if !ok {
 		return nil, errorInvalidArgumentFZFPreviewCommand
 	}
+	var options []string
+	if kubernetesNamespace != "" {
+		options = append(options, "-n", kubernetesNamespace)
+	}
+	var option string
+	if len(options) > 0 {
+		option = " " + strings.Join(options, " ")
+	}
 	previewCommand, err := commandFromTemplate("preview", previewCommandTemplate, map[string]interface{}{
 		"resource": kubernetesResource,
 		"name":     "{1}",
+		"options":  option,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("invalid fzf preview command: %w", err)
@@ -61,14 +70,31 @@ func NewGetCli(kubernetesResource string, previewFormat string, outputFormat str
 
 	return &getCli{
 		resource:     kubernetesResource,
+		namespace:    kubernetesNamespace,
 		fzfOption:    fzfOption,
 		outputFormat: outputFormat,
 	}, nil
 }
 
 func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
-	command := fmt.Sprintf("kubectl get %s | fzf %s", c.resource, c.fzfOption)
-	out, err := runCommandWithFzf(ctx, command, ioIn, ioErr)
+	arguments := []string{
+		"get",
+		c.resource,
+	}
+	var kubectlOptions []string
+	if c.namespace != "" {
+		kubectlOptions = append(kubectlOptions, "-n", c.namespace)
+	}
+	arguments = append(arguments, kubectlOptions...)
+	out, err := runKubectl(ctx, arguments)
+	if err != nil {
+		return fmt.Errorf("failed to run kubectl: %w", err)
+	}
+	if len(strings.Split(strings.TrimSpace(string(out)), "\n")) == 1 {
+		return fmt.Errorf("failed to run kubectl. Namespace %s may not exist", c.namespace)
+	}
+	command := fmt.Sprintf("echo '%s' | fzf %s", string(out), c.fzfOption)
+	out, err = runCommandWithFzf(ctx, command, ioIn, ioErr)
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			// Script canceled by Ctrl-c
@@ -101,6 +127,7 @@ func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr 
 			// So this should never happens
 			panic(errorInvalidArgumentOutputFormat)
 		}
+		args = append(args, kubectlOptions...)
 		out, err = runKubectl(ctx, args)
 		if err != nil {
 			return fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
