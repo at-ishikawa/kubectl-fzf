@@ -158,13 +158,15 @@ func TestKubectl_Run(t *testing.T) {
 		runKubectl = backupRunKubectlFunc
 	}()
 
-	defaultErr := errors.New("error")
+	// defaultErr := errors.New("error")
 	testCases := []struct {
 		name         string
 		kubectl      kubectl
 		operation    string
 		resourceName string
 		options      map[string]string
+		kubectlOut   []byte
+		kubectlErr   error
 		want         []byte
 		wantErr      error
 	}{
@@ -179,28 +181,43 @@ func TestKubectl_Run(t *testing.T) {
 			options: map[string]string{
 				"-o": "yaml",
 			},
-			want: []byte("pods"),
+			kubectlOut: []byte("pods"),
+			want:       []byte("pods"),
 		},
 		{
-			name: "with error",
+			name: "error with stdout",
 			kubectl: kubectl{
 				resource: kubernetesResourcePods,
 			},
 			operation:    "get",
 			resourceName: "pod2",
+			kubectlOut:   []byte("server doesn't have a resource type"),
+			kubectlErr:   errors.New("exit status: 1"),
 			want:         nil,
-			wantErr:      defaultErr,
+			wantErr:      errors.New("server doesn't have a resource type"),
+		},
+		{
+			name: "error without stdout",
+			kubectl: kubectl{
+				resource: kubernetesResourcePods,
+			},
+			operation:    "get",
+			resourceName: "pod2",
+			kubectlOut:   nil,
+			kubectlErr:   errors.New("k executable file not found"),
+			want:         nil,
+			wantErr:      errors.New("k executable file not found"),
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			runKubectl = func(ctx context.Context, args []string) (bytes []byte, err error) {
-				return tc.want, tc.wantErr
+				return tc.kubectlOut, tc.kubectlErr
 			}
 
 			got, gotErr := tc.kubectl.run(context.Background(), tc.operation, tc.resourceName, tc.options)
 			assert.Equal(t, tc.want, got)
-			assert.Equal(t, tc.wantErr, errors.Unwrap(gotErr))
+			assert.Equal(t, tc.wantErr, gotErr)
 		})
 	}
 }

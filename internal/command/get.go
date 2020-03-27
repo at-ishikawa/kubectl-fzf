@@ -68,7 +68,7 @@ func NewGetCli(k *kubectl, previewFormat string, outputFormat string, fzfQuery s
 func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
 	out, err := c.kubectl.run(ctx, "get", "", nil)
 	if err != nil {
-		return fmt.Errorf("failed to run kubectl: %w", err)
+		return err
 	}
 	if len(strings.Split(strings.TrimSpace(string(out)), "\n")) == 1 {
 		return fmt.Errorf("failed to run kubectl. Namespace may not exist")
@@ -97,7 +97,7 @@ func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr 
 			"-o": c.outputFormat,
 		})
 		if err != nil {
-			return fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
+			return err
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -12,8 +13,10 @@ import (
 
 func main() {
 	cli := cobra.Command{
-		Use:   "kubectl-fzf [command]",
-		Short: "kubectl commands with fzf",
+		Use:           "kubectl-fzf [command]",
+		Short:         "kubectl commands with fzf",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 	commonFlags := cli.PersistentFlags()
 	commonFlags.StringP("query", "q", "", "Start the fzf with this query")
@@ -95,7 +98,14 @@ func main() {
 	cli.AddCommand(&describeCommand)
 
 	if err := cli.Execute(); err != nil {
-		fmt.Println(err)
+		message := err.Error()
+		if !strings.HasSuffix(message, "\n") {
+			message = message + "\n"
+		}
+		_, werr := fmt.Fprint(os.Stderr, message)
+		if werr != nil {
+			fmt.Printf("failed to write the message %s on stderr", message)
+		}
 		os.Exit(1)
 	}
 	os.Exit(0)
