@@ -8,6 +8,9 @@ build:
 	mkdir -p ./bin
 	go build -o ./bin/ ./cmd/kubectl-fzf
 
+generate:
+	go generate -v ./...
+
 test:
 	go test -v ./...
 

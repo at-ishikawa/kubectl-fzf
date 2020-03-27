@@ -1,10 +1,11 @@
 package command
 
+//go:generate mockgen -destination=./kubectl_mock.go -package=command github.com/at-ishikawa/kubectl-fzf/internal/command Kubectl
+
 import (
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"os"
 	"os/exec"
@@ -16,9 +17,6 @@ const (
 	kubectlOutputFormatDescribe = "describe"
 	kubectlOutputFormatYaml     = "yaml"
 	kubectlOutputFormatJSON     = "json"
-
-	previewCommandDescribe = "kubectl describe {{ .resource }} {{ .name }}"
-	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml"
 
 	envNameFzfOption     = "KUBECTL_FZF_FZF_OPTION"
 	envNameFzfBindOption = "KUBECTL_FZF_FZF_BIND_OPTION"
@@ -40,16 +38,53 @@ var (
 	}
 )
 
-func commandFromTemplate(name string, command string, data map[string]interface{}) (string, error) {
-	tmpl, err := template.New(name).Parse(command)
+type Kubectl interface {
+	getCommand(operation string, name string, options map[string]string) string
+	run(ctx context.Context, operation string, name string, options map[string]string) ([]byte, error)
+}
+
+type kubectl struct {
+	resource  string
+	namespace string
+}
+
+func NewKubectl(kubernetesResource string, kubernetesNamespace string) (*kubectl, error) {
+	if kubernetesResource == "" {
+		return nil, errorInvalidArgumentKubernetesResource
+	}
+	return &kubectl{
+		resource:  kubernetesResource,
+		namespace: kubernetesNamespace,
+	}, nil
+}
+
+func (k kubectl) run(ctx context.Context, operation string, name string, options map[string]string) ([]byte, error) {
+	out, err := runKubectl(ctx, k.getArguments(operation, name, options))
 	if err != nil {
-		return "", fmt.Errorf("failed to parse the command: %w", err)
+		return nil, fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
 	}
-	builder := strings.Builder{}
-	if err = tmpl.Execute(&builder, data); err != nil {
-		return "", fmt.Errorf("failed to set data on the template of command: %w", err)
+	return out, nil
+}
+
+func (k kubectl) getCommand(operation string, name string, options map[string]string) string {
+	return "kubectl " + strings.Join(k.getArguments(operation, name, options), " ")
+}
+
+func (k kubectl) getArguments(operation string, name string, options map[string]string) []string {
+	args := []string{
+		operation,
+		k.resource,
 	}
-	return builder.String(), nil
+	if name != "" {
+		args = append(args, name)
+	}
+	if k.namespace != "" {
+		args = append(args, "-n", k.namespace)
+	}
+	for k, v := range options {
+		args = append(args, k, v)
+	}
+	return args
 }
 
 func getFzfOption(previewCommand string) (string, error) {

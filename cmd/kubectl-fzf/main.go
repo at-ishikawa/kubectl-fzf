@@ -17,6 +17,7 @@ func main() {
 	}
 	commonFlags := cli.PersistentFlags()
 	commonFlags.StringP("query", "q", "", "Start the fzf with this query")
+	commonFlags.StringP("namespace", "n", "", "Kubernetes namespace")
 
 	getCommand := cobra.Command{
 		Use:   "get [resource]",
@@ -25,6 +26,10 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resource := args[0]
 			flags := cmd.Flags()
+			namespace, err := flags.GetString("namespace")
+			if err != nil {
+				return err
+			}
 			previewFormat, err := flags.GetString("preview-format")
 			if err != nil {
 				return err
@@ -38,7 +43,11 @@ func main() {
 				return err
 			}
 
-			cli, err := command.NewGetCli(resource, previewFormat, outputFormat, fzfQuery)
+			kubectl, err := command.NewKubectl(resource, namespace)
+			if err != nil {
+				return err
+			}
+			cli, err := command.NewGetCli(kubectl, previewFormat, outputFormat, fzfQuery)
 			if err != nil {
 				return err
 			}
@@ -60,12 +69,20 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resource := args[0]
 			flags := cmd.Flags()
+			namespace, err := flags.GetString("namespace")
+			if err != nil {
+				return err
+			}
 			fzfQuery, err := flags.GetString("query")
 			if err != nil {
 				return err
 			}
 
-			cli, err := command.NewDescribeCli(resource, fzfQuery)
+			kubectl, err := command.NewKubectl(resource, namespace)
+			if err != nil {
+				return err
+			}
+			cli, err := command.NewDescribeCli(kubectl, fzfQuery)
 			if err != nil {
 				return err
 			}

@@ -9,22 +9,12 @@ import (
 )
 
 type describeCli struct {
-	resource  string
+	kubectl   Kubectl
 	fzfOption string
 }
 
-func NewDescribeCli(kubernetesResource string, fzfQuery string) (*describeCli, error) {
-	if kubernetesResource == "" {
-		return nil, errorInvalidArgumentKubernetesResource
-	}
-	previewCommand, err := commandFromTemplate("preview", previewCommandDescribe, map[string]interface{}{
-		"resource": kubernetesResource,
-		"name":     "{1}",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("invalid fzf preview command: %w", err)
-	}
-
+func NewDescribeCli(kubectl Kubectl, fzfQuery string) (*describeCli, error) {
+	previewCommand := kubectl.getCommand("describe", "{1}", nil)
 	fzfOption, err := getFzfOption(previewCommand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fzf option: %w", err)
@@ -34,14 +24,21 @@ func NewDescribeCli(kubernetesResource string, fzfQuery string) (*describeCli, e
 	}
 
 	return &describeCli{
-		resource:  kubernetesResource,
+		kubectl:   kubectl,
 		fzfOption: fzfOption,
 	}, nil
 }
 
 func (c describeCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
-	command := fmt.Sprintf("kubectl get %s | fzf %s", c.resource, c.fzfOption)
-	out, err := runCommandWithFzf(ctx, command, ioIn, ioErr)
+	out, err := c.kubectl.run(ctx, "get", "", nil)
+	if err != nil {
+		return fmt.Errorf("failed to run kubectl: %w", err)
+	}
+	if len(strings.Split(strings.TrimSpace(string(out)), "\n")) == 1 {
+		return fmt.Errorf("failed to run kubectl. Namespace may not exist")
+	}
+	command := fmt.Sprintf("echo '%s' | fzf %s", string(out), c.fzfOption)
+	out, err = runCommandWithFzf(ctx, command, ioIn, ioErr)
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			// Script canceled by Ctrl-c
@@ -57,16 +54,10 @@ func (c describeCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, i
 	columns := strings.Fields(line)
 	name := strings.TrimSpace(columns[0])
 
-	args := []string{
-		"describe",
-		c.resource,
-		name,
-	}
-	out, err = runKubectl(ctx, args)
+	out, err = c.kubectl.run(ctx, "describe", name, nil)
 	if err != nil {
 		return fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
 	}
-
 	if _, err := ioOut.Write(out); err != nil {
 		return fmt.Errorf("failed to output the result: %w", err)
 	}
