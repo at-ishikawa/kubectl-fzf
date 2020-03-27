@@ -61,7 +61,11 @@ func NewKubectl(kubernetesResource string, kubernetesNamespace string) (*kubectl
 func (k kubectl) run(ctx context.Context, operation string, name string, options map[string]string) ([]byte, error) {
 	out, err := runKubectl(ctx, k.getArguments(operation, name, options))
 	if err != nil {
-		return nil, fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
+		message := string(out)
+		if len(message) > 0 {
+			return nil, fmt.Errorf(message)
+		}
+		return nil, err
 	}
 	return out, nil
 }
