@@ -14,7 +14,7 @@ type describeCli struct {
 }
 
 func NewDescribeCli(kubectl Kubectl, fzfQuery string) (*describeCli, error) {
-	previewCommand := kubectl.getCommand("describe", "{1}", nil)
+	previewCommand := kubectl.getCommand("describe", []string{"{1}"}, nil)
 	fzfOption, err := getFzfOption(previewCommand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fzf option: %w", err)
@@ -30,7 +30,7 @@ func NewDescribeCli(kubectl Kubectl, fzfQuery string) (*describeCli, error) {
 }
 
 func (c describeCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
-	out, err := c.kubectl.run(ctx, "get", "", nil)
+	out, err := c.kubectl.run(ctx, "get", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -50,11 +50,14 @@ func (c describeCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, i
 		return fmt.Errorf("failed to run the command %s: %w", command, err)
 	}
 
-	line := strings.TrimSpace(string(out))
-	columns := strings.Fields(line)
-	name := strings.TrimSpace(columns[0])
+	rows := strings.Split(strings.TrimSpace(string(out)), "\n")
+	names := make([]string, len(rows))
+	for i, row := range rows {
+		columns := strings.Fields(row)
+		names[i] = strings.TrimSpace(columns[0])
+	}
 
-	out, err = c.kubectl.run(ctx, "describe", name, nil)
+	out, err = c.kubectl.run(ctx, "describe", names, nil)
 	if err != nil {
 		return err
 	}

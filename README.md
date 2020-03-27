@@ -10,7 +10,7 @@ This plugin is the similar to the next command (fish).
 
 ```fish
 > set -l resource pods resource
-> kubectl get $resource | fzf --inline-info --layout=reverse --preview="kubectl describe $resource {1}" --header-lines 1 --preview-window=down:70% --bind $key_bindings | awk '{ print $1 }' | string trim
+> kubectl get $resource | fzf --inline-info --multi --layout=reverse --preview="kubectl describe $resource {1}" --header-lines 1 --preview-window=down:70% --bind $key_bindings | awk '{ print $1 }' | string trim
 ```
 
 ## Install
@@ -66,5 +66,5 @@ Global Flags:
     * Default: `ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down`
 * `KUBECTL_FZF_FZF_OPTION`
     * The entire option for fzf. This option may use `KUBECTL_FZF_FZF_BIND_OPTION` environment variable.
-    * Default: `--inline-info --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION`
+    * Default: `--inline-info --multi --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION`
     * `$KUBECTL_FZF_FZF_PREVIEW_OPTION` is replaced with preview command. This cannot be injected by environment variable `KUBECTL_FZF_FZF_PREVIEW_OPTION`.

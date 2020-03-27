@@ -21,7 +21,7 @@ const (
 	envNameFzfOption     = "KUBECTL_FZF_FZF_OPTION"
 	envNameFzfBindOption = "KUBECTL_FZF_FZF_BIND_OPTION"
 	defaultFzfBindOption = "ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down"
-	defaultFzfOption     = "--inline-info --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION"
+	defaultFzfOption     = "--inline-info --multi --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION"
 )
 
 var (
@@ -39,8 +39,8 @@ var (
 )
 
 type Kubectl interface {
-	getCommand(operation string, name string, options map[string]string) string
-	run(ctx context.Context, operation string, name string, options map[string]string) ([]byte, error)
+	getCommand(operation string, names []string, options map[string]string) string
+	run(ctx context.Context, operation string, names []string, options map[string]string) ([]byte, error)
 }
 
 type kubectl struct {
@@ -58,8 +58,8 @@ func NewKubectl(kubernetesResource string, kubernetesNamespace string) (*kubectl
 	}, nil
 }
 
-func (k kubectl) run(ctx context.Context, operation string, name string, options map[string]string) ([]byte, error) {
-	out, err := runKubectl(ctx, k.getArguments(operation, name, options))
+func (k kubectl) run(ctx context.Context, operation string, names []string, options map[string]string) ([]byte, error) {
+	out, err := runKubectl(ctx, k.getArguments(operation, names, options))
 	if err != nil {
 		message := string(out)
 		if len(message) > 0 {
@@ -70,18 +70,16 @@ func (k kubectl) run(ctx context.Context, operation string, name string, options
 	return out, nil
 }
 
-func (k kubectl) getCommand(operation string, name string, options map[string]string) string {
-	return "kubectl " + strings.Join(k.getArguments(operation, name, options), " ")
+func (k kubectl) getCommand(operation string, names []string, options map[string]string) string {
+	return "kubectl " + strings.Join(k.getArguments(operation, names, options), " ")
 }
 
-func (k kubectl) getArguments(operation string, name string, options map[string]string) []string {
+func (k kubectl) getArguments(operation string, names []string, options map[string]string) []string {
 	args := []string{
 		operation,
 		k.resource,
 	}
-	if name != "" {
-		args = append(args, name)
-	}
+	args = append(args, names...)
 	if k.namespace != "" {
 		args = append(args, "-n", k.namespace)
 	}
