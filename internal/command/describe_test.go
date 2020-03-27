@@ -17,6 +17,17 @@ import (
 )
 
 func TestNewDescribeCli(t *testing.T) {
+	fzfOptionFunc := func(previewCommand string, query string) string {
+		fzf, err := getFzfOption(previewCommand)
+		if err != nil {
+			panic(err)
+		}
+		if query != "" {
+			return fzf + " --query " + query
+		}
+		return fzf
+	}
+
 	kubectlWithNamespace := kubectl{
 		resource:  kubernetesResourcePods,
 		namespace: "default",
@@ -39,7 +50,7 @@ func TestNewDescribeCli(t *testing.T) {
 			fzfQuery: "",
 			want: &describeCli{
 				kubectl:   kubectlWithNamespace,
-				fzfOption: fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {1} -n default", defaultFzfBindOption),
+				fzfOption: fzfOptionFunc("kubectl describe pods {1} -n default", ""),
 			},
 			wantErr: nil,
 		},
@@ -49,7 +60,7 @@ func TestNewDescribeCli(t *testing.T) {
 			fzfQuery: "",
 			want: &describeCli{
 				kubectl:   kubectlWithoutNamespace,
-				fzfOption: fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe svc {1}", defaultFzfBindOption),
+				fzfOption: fzfOptionFunc("kubectl describe svc {1}", ""),
 			},
 			wantErr: nil,
 		},

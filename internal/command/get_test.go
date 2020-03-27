@@ -22,6 +22,17 @@ const (
 )
 
 func TestNewGetCli(t *testing.T) {
+	fzfOptionFunc := func(previewCommand string, query string) string {
+		fzf, err := getFzfOption(previewCommand)
+		if err != nil {
+			panic(err)
+		}
+		if query != "" {
+			return fzf + " --query " + query
+		}
+		return fzf
+	}
+
 	testCases := []struct {
 		name           string
 		resource       string
@@ -46,7 +57,7 @@ func TestNewGetCli(t *testing.T) {
 					namespace: "default",
 				},
 				outputFormat: kubectlOutputFormatYaml,
-				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {1} -n default", defaultFzfBindOption),
+				fzfOption:    fzfOptionFunc("kubectl describe pods {1} -n default", ""),
 			},
 			wantErr: nil,
 		},
@@ -61,7 +72,7 @@ func TestNewGetCli(t *testing.T) {
 					resource: kubernetesResourceService,
 				},
 				outputFormat: kubectlOutputFormatYaml,
-				fzfOption:    fmt.Sprintf("--inline-info --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s --query svc", "kubectl get svc {1} -o yaml", defaultFzfBindOption),
+				fzfOption:    fzfOptionFunc("kubectl get svc {1} -o yaml", "svc"),
 			},
 			wantErr: nil,
 		},

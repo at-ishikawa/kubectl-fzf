@@ -46,7 +46,7 @@ func NewGetCli(k *kubectl, previewFormat string, outputFormat string, fzfQuery s
 	if !ok {
 		return nil, errorInvalidArgumentFZFPreviewCommand
 	}
-	previewCommand := k.getCommand(previewCommandTemplate.operation, "{1}", previewCommandTemplate.options)
+	previewCommand := k.getCommand(previewCommandTemplate.operation, []string{"{1}"}, previewCommandTemplate.options)
 	fzfOption, err := getFzfOption(previewCommand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fzf option: %w", err)
@@ -66,7 +66,7 @@ func NewGetCli(k *kubectl, previewFormat string, outputFormat string, fzfQuery s
 }
 
 func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
-	out, err := c.kubectl.run(ctx, "get", "", nil)
+	out, err := c.kubectl.run(ctx, "get", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -86,14 +86,17 @@ func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr 
 		return fmt.Errorf("failed to run the command %s: %w", command, err)
 	}
 
-	line := strings.TrimSpace(string(out))
-	columns := strings.Fields(line)
-	name := strings.TrimSpace(columns[0])
+	rows := strings.Split(strings.TrimSpace(string(out)), "\n")
+	names := make([]string, len(rows))
+	for i, row := range rows {
+		columns := strings.Fields(row)
+		names[i] = strings.TrimSpace(columns[0])
+	}
 
 	if c.outputFormat == kubectlOutputFormatName {
-		out = bytes.NewBufferString(name + "\n").Bytes()
+		out = bytes.NewBufferString(strings.Join(names, "\n") + "\n").Bytes()
 	} else {
-		out, err = c.kubectl.run(ctx, "get", name, map[string]string{
+		out, err = c.kubectl.run(ctx, "get", names, map[string]string{
 			"-o": c.outputFormat,
 		})
 		if err != nil {
