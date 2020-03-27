@@ -11,8 +11,7 @@ import (
 )
 
 type getCli struct {
-	resource     string
-	namespace    string
+	kubectl      Kubectl
 	outputFormat string
 	fzfOption    string
 }
@@ -21,9 +20,19 @@ var (
 	errorInvalidArgumentFZFPreviewCommand = errors.New("preview format must be one of [describe, yaml]")
 	errorInvalidArgumentOutputFormat      = errors.New("output format must be one of [name, yaml, json]")
 
-	getCliPreviewCommands = map[string]string{
-		kubectlOutputFormatDescribe: previewCommandDescribe,
-		kubectlOutputFormatYaml:     previewCommandYaml,
+	getCliPreviewCommands = map[string]struct {
+		operation string
+		options   map[string]string
+	}{
+		kubectlOutputFormatDescribe: {
+			operation: "describe",
+		},
+		kubectlOutputFormatYaml: {
+			operation: "get",
+			options: map[string]string{
+				"-o": "yaml",
+			},
+		},
 	}
 	getCliOutputFormats = map[string]struct{}{
 		kubectlOutputFormatName: {},
@@ -32,31 +41,12 @@ var (
 	}
 )
 
-func NewGetCli(kubernetesResource string, kubernetesNamespace string, previewFormat string, outputFormat string, fzfQuery string) (*getCli, error) {
-	if kubernetesResource == "" {
-		return nil, errorInvalidArgumentKubernetesResource
-	}
+func NewGetCli(k *kubectl, previewFormat string, outputFormat string, fzfQuery string) (*getCli, error) {
 	previewCommandTemplate, ok := getCliPreviewCommands[previewFormat]
 	if !ok {
 		return nil, errorInvalidArgumentFZFPreviewCommand
 	}
-	var options []string
-	if kubernetesNamespace != "" {
-		options = append(options, "-n", kubernetesNamespace)
-	}
-	var option string
-	if len(options) > 0 {
-		option = " " + strings.Join(options, " ")
-	}
-	previewCommand, err := commandFromTemplate("preview", previewCommandTemplate, map[string]interface{}{
-		"resource": kubernetesResource,
-		"name":     "{1}",
-		"options":  option,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("invalid fzf preview command: %w", err)
-	}
-
+	previewCommand := k.getCommand(previewCommandTemplate.operation, "{1}", previewCommandTemplate.options)
 	fzfOption, err := getFzfOption(previewCommand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fzf option: %w", err)
@@ -69,29 +59,19 @@ func NewGetCli(kubernetesResource string, kubernetesNamespace string, previewFor
 	}
 
 	return &getCli{
-		resource:     kubernetesResource,
-		namespace:    kubernetesNamespace,
+		kubectl:      k,
 		fzfOption:    fzfOption,
 		outputFormat: outputFormat,
 	}, nil
 }
 
 func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
-	arguments := []string{
-		"get",
-		c.resource,
-	}
-	var kubectlOptions []string
-	if c.namespace != "" {
-		kubectlOptions = append(kubectlOptions, "-n", c.namespace)
-	}
-	arguments = append(arguments, kubectlOptions...)
-	out, err := runKubectl(ctx, arguments)
+	out, err := c.kubectl.run(ctx, "get", "", nil)
 	if err != nil {
 		return fmt.Errorf("failed to run kubectl: %w", err)
 	}
 	if len(strings.Split(strings.TrimSpace(string(out)), "\n")) == 1 {
-		return fmt.Errorf("failed to run kubectl. Namespace %s may not exist", c.namespace)
+		return fmt.Errorf("failed to run kubectl. Namespace may not exist")
 	}
 	command := fmt.Sprintf("echo '%s' | fzf %s", string(out), c.fzfOption)
 	out, err = runCommandWithFzf(ctx, command, ioIn, ioErr)
@@ -113,22 +93,9 @@ func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr 
 	if c.outputFormat == kubectlOutputFormatName {
 		out = bytes.NewBufferString(name + "\n").Bytes()
 	} else {
-		var args []string
-		if c.outputFormat == kubectlOutputFormatJSON || c.outputFormat == kubectlOutputFormatYaml {
-			args = []string{
-				"get",
-				c.resource,
-				"-o",
-				c.outputFormat,
-				name,
-			}
-		} else {
-			// The output format has to be validated on NewGetCli function
-			// So this should never happens
-			panic(errorInvalidArgumentOutputFormat)
-		}
-		args = append(args, kubectlOptions...)
-		out, err = runKubectl(ctx, args)
+		out, err = c.kubectl.run(ctx, "get", name, map[string]string{
+			"-o": c.outputFormat,
+		})
 		if err != nil {
 			return fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
 		}

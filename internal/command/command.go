@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"os"
 	"os/exec"
@@ -18,9 +17,6 @@ const (
 	kubectlOutputFormatDescribe = "describe"
 	kubectlOutputFormatYaml     = "yaml"
 	kubectlOutputFormatJSON     = "json"
-
-	previewCommandDescribe = "kubectl describe {{ .resource }} {{ .name }}{{ .options }}"
-	previewCommandYaml     = "kubectl get {{ .resource }} {{ .name }} -o yaml{{ .options }}"
 
 	envNameFzfOption     = "KUBECTL_FZF_FZF_OPTION"
 	envNameFzfBindOption = "KUBECTL_FZF_FZF_BIND_OPTION"
@@ -89,18 +85,6 @@ func (k kubectl) getArguments(operation string, name string, options map[string]
 		args = append(args, k, v)
 	}
 	return args
-}
-
-func commandFromTemplate(name string, command string, data map[string]interface{}) (string, error) {
-	tmpl, err := template.New(name).Parse(command)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse the command: %w", err)
-	}
-	builder := strings.Builder{}
-	if err = tmpl.Execute(&builder, data); err != nil {
-		return "", fmt.Errorf("failed to set data on the template of command: %w", err)
-	}
-	return builder.String(), nil
 }
 
 func getFzfOption(previewCommand string) (string, error) {

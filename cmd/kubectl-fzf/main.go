@@ -43,7 +43,11 @@ func main() {
 				return err
 			}
 
-			cli, err := command.NewGetCli(resource, namespace, previewFormat, outputFormat, fzfQuery)
+			kubectl, err := command.NewKubectl(resource, namespace)
+			if err != nil {
+				return err
+			}
+			cli, err := command.NewGetCli(kubectl, previewFormat, outputFormat, fzfQuery)
 			if err != nil {
 				return err
 			}
