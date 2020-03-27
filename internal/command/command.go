@@ -1,5 +1,7 @@
 package command
 
+//go:generate mockgen -destination=./kubectl_mock.go -package=command github.com/at-ishikawa/kubectl-fzf/internal/command Kubectl
+
 import (
 	"context"
 	"errors"
@@ -35,7 +37,6 @@ var (
 		cmd.Stdin = ioIn
 		return cmd.Output()
 	}
-	// Deprecated
 	runKubectl = func(ctx context.Context, args []string) ([]byte, error) {
 		return exec.CommandContext(ctx, "kubectl", args...).CombinedOutput()
 	}
@@ -51,7 +52,7 @@ type kubectl struct {
 	namespace string
 }
 
-func NewKubectl(kubernetesResource string, kubernetesNamespace string) (Kubectl, error) {
+func NewKubectl(kubernetesResource string, kubernetesNamespace string) (*kubectl, error) {
 	if kubernetesResource == "" {
 		return nil, errorInvalidArgumentKubernetesResource
 	}
@@ -62,7 +63,7 @@ func NewKubectl(kubernetesResource string, kubernetesNamespace string) (Kubectl,
 }
 
 func (k kubectl) run(ctx context.Context, operation string, name string, options map[string]string) ([]byte, error) {
-	out, err := exec.CommandContext(ctx, "kubectl", k.getArguments(operation, name, options)...).CombinedOutput()
+	out, err := runKubectl(ctx, k.getArguments(operation, name, options))
 	if err != nil {
 		return nil, fmt.Errorf("failed get kubernetes resource: %w. kubectl output: %s", err, string(out))
 	}
@@ -72,6 +73,7 @@ func (k kubectl) run(ctx context.Context, operation string, name string, options
 func (k kubectl) getCommand(operation string, name string, options map[string]string) string {
 	return "kubectl " + strings.Join(k.getArguments(operation, name, options), " ")
 }
+
 func (k kubectl) getArguments(operation string, name string, options map[string]string) []string {
 	args := []string{
 		operation,
