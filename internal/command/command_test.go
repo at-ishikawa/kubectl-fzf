@@ -264,23 +264,21 @@ func TestGetFzfOption(t *testing.T) {
 		{
 			name:           "no env vars",
 			previewCommand: "kubectl describe pods {{1}}",
-			want:           fmt.Sprintf("--inline-info --multi --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind %s", "kubectl describe pods {{1}}", defaultFzfBindOption),
+			want:           fmt.Sprintf("--inline-info --multi --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", "kubectl describe pods {{1}}"),
 		},
 		{
 			name:           "all correct env vars",
 			previewCommand: "kubectl describe pods {{1}}",
 			envVars: map[string]string{
-				envNameFzfOption:     fmt.Sprintf("--preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --bind $%s", envNameFzfBindOption),
-				envNameFzfBindOption: "ctrl-k:kill-line",
+				envNameFzfOption: "--preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --bind ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down",
 			},
-			want: fmt.Sprintf("--preview '%s' --bind %s", "kubectl describe pods {{1}}", "ctrl-k:kill-line"),
+			want: fmt.Sprintf("--preview '%s' --bind %s", "kubectl describe pods {{1}}", "ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down"),
 		},
 		{
 			name:           "no env vars",
 			previewCommand: "unused preview command",
 			envVars: map[string]string{
-				envNameFzfOption:     "--inline-info",
-				envNameFzfBindOption: "unused",
+				envNameFzfOption: "--inline-info",
 			},
 			want: "--inline-info",
 		},
@@ -288,8 +286,7 @@ func TestGetFzfOption(t *testing.T) {
 			name:           "invalid env vars in KUBECTL_FZF_FZF_OPTION",
 			previewCommand: "unused preview command",
 			envVars: map[string]string{
-				envNameFzfOption:     "--inline-info $UNKNOWN_ENV_NAME",
-				envNameFzfBindOption: "unused",
+				envNameFzfOption: "--inline-info $UNKNOWN_ENV_NAME",
 			},
 			want:    "",
 			wantErr: fmt.Errorf("%s has invalid environment variables: UNKNOWN_ENV_NAME", envNameFzfOption),

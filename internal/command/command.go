@@ -13,15 +13,22 @@ import (
 )
 
 const (
-	kubectlOutputFormatName     = "name"
 	kubectlOutputFormatDescribe = "describe"
 	kubectlOutputFormatYaml     = "yaml"
-	kubectlOutputFormatJSON     = "json"
 
-	envNameFzfOption     = "KUBECTL_FZF_FZF_OPTION"
-	envNameFzfBindOption = "KUBECTL_FZF_FZF_BIND_OPTION"
-	defaultFzfBindOption = "ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down"
-	defaultFzfOption     = "--inline-info --multi --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION"
+	envNameFzfOption = "KUBECTL_FZF_FZF_OPTION"
+)
+
+var (
+	defaultFzfOption = strings.Join([]string{
+		"--inline-info",
+		"--multi",
+		"--layout reverse",
+		"--preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION'",
+		"--preview-window down:70%",
+		"--header-lines 1",
+		"--bind ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down",
+	}, " ")
 )
 
 var (
@@ -97,10 +104,6 @@ func getFzfOption(previewCommand string) (string, error) {
 	options := map[string][]string{
 		"KUBECTL_FZF_FZF_PREVIEW_OPTION": {
 			previewCommand,
-		},
-		envNameFzfBindOption: {
-			os.Getenv(envNameFzfBindOption),
-			defaultFzfBindOption,
 		},
 	}
 	var invalidEnvVars []string
