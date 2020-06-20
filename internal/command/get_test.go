@@ -49,15 +49,13 @@ func TestNewGetCli(t *testing.T) {
 			resource:       kubernetesResourcePods,
 			namespace:      "default",
 			previewCommand: kubectlOutputFormatDescribe,
-			outputFormat:   kubectlOutputFormatYaml,
 			fzfQuery:       "",
 			want: &getCli{
 				kubectl: &kubectl{
 					resource:  kubernetesResourcePods,
 					namespace: "default",
 				},
-				outputFormat: kubectlOutputFormatYaml,
-				fzfOption:    fzfOptionFunc("kubectl describe pods {1} -n default", ""),
+				fzfOption: fzfOptionFunc("kubectl describe pods {1} -n default", ""),
 			},
 			wantErr: nil,
 		},
@@ -65,14 +63,12 @@ func TestNewGetCli(t *testing.T) {
 			name:           "get yaml preview command",
 			resource:       kubernetesResourceService,
 			previewCommand: kubectlOutputFormatYaml,
-			outputFormat:   kubectlOutputFormatYaml,
 			fzfQuery:       "svc",
 			want: &getCli{
 				kubectl: &kubectl{
 					resource: kubernetesResourceService,
 				},
-				outputFormat: kubectlOutputFormatYaml,
-				fzfOption:    fzfOptionFunc("kubectl get svc {1} -o yaml", "svc"),
+				fzfOption: fzfOptionFunc("kubectl get svc {1} -o yaml", "svc"),
 			},
 			wantErr: nil,
 		},
@@ -92,26 +88,9 @@ func TestNewGetCli(t *testing.T) {
 			wantErr:        errorInvalidArgumentFZFPreviewCommand,
 		},
 		{
-			name:           "invalid output format",
-			resource:       kubernetesResourcePods,
-			previewCommand: kubectlOutputFormatYaml,
-			outputFormat:   "unknown",
-			want:           nil,
-			wantErr:        errorInvalidArgumentOutputFormat,
-		},
-		{
-			name:           "empty output format",
-			resource:       kubernetesResourcePods,
-			previewCommand: kubectlOutputFormatYaml,
-			outputFormat:   "",
-			want:           nil,
-			wantErr:        errorInvalidArgumentOutputFormat,
-		},
-		{
 			name:           "KUBECTL_FZF_FZF_OPTION includes invalid env",
 			resource:       kubernetesResourcePods,
 			previewCommand: kubectlOutputFormatYaml,
-			outputFormat:   kubectlOutputFormatYaml,
 			envVars: map[string]string{
 				envNameFzfOption: "$UNKNOWN_ENV1, $UNKNOWN_ENV2",
 			},
@@ -136,7 +115,7 @@ func TestNewGetCli(t *testing.T) {
 				resource:  tc.resource,
 				namespace: tc.namespace,
 			}
-			got, gotErr := NewGetCli(k, tc.previewCommand, tc.outputFormat, tc.fzfQuery)
+			got, gotErr := NewGetCli(k, tc.previewCommand, tc.fzfQuery)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantErr, gotErr)
 		})
@@ -163,31 +142,16 @@ func TestGetCli_Run(t *testing.T) {
 		wantIOErr           string
 	}{
 		{
-			name: "name output",
+			name: "normal case",
 			sut: getCli{
 				kubectl: &kubectl{
 					resource: kubernetesResourcePods,
 				},
-				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatName,
+				fzfOption: fzfOption,
 			},
 			runCommandWithFzf: defaultRunCommand,
 			wantErr:           nil,
 			wantIO:            "pod\n",
-			wantIOErr:         "",
-		},
-		{
-			name: "yaml output",
-			sut: getCli{
-				kubectl: &kubectl{
-					resource: kubernetesResourcePods,
-				},
-				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatYaml,
-			},
-			runCommandWithFzf: defaultRunCommand,
-			wantErr:           nil,
-			wantIO:            "apiVersion: v1\nkind: Pod",
 			wantIOErr:         "",
 		},
 		{
@@ -196,8 +160,7 @@ func TestGetCli_Run(t *testing.T) {
 				kubectl: &kubectl{
 					resource: kubernetesResourcePods,
 				},
-				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatYaml,
+				fzfOption: fzfOption,
 			},
 			runCommandWithFzf: func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
 				return nil, defaultWantErr
@@ -213,8 +176,7 @@ func TestGetCli_Run(t *testing.T) {
 					resource:  kubernetesResourcePods,
 					namespace: "invalid",
 				},
-				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatYaml,
+				fzfOption: fzfOption,
 			},
 			runCommandWithFzf: defaultRunCommand,
 			kubectlGetErr:     &exitErr,
@@ -228,8 +190,7 @@ func TestGetCli_Run(t *testing.T) {
 				kubectl: &kubectl{
 					resource: kubernetesResourcePods,
 				},
-				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatYaml,
+				fzfOption: fzfOption,
 			},
 			runCommandWithFzf: func(ctx context.Context, commandLine string, ioIn io.Reader, ioErr io.Writer) (i []byte, e error) {
 				return nil, &exitErr
@@ -244,29 +205,13 @@ func TestGetCli_Run(t *testing.T) {
 				kubectl: &kubectl{
 					resource: kubernetesResourcePods,
 				},
-				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatYaml,
+				fzfOption: fzfOption,
 			},
 			runCommandWithFzf: defaultRunCommand,
 			kubectlGetErr:     defaultWantErr,
 			wantErr:           defaultWantErr,
 			wantIO:            "",
 			wantIOErr:         "",
-		},
-		{
-			name: "kubectl get detail command error",
-			sut: getCli{
-				kubectl: &kubectl{
-					resource: kubernetesResourcePods,
-				},
-				fzfOption:    fzfOption,
-				outputFormat: kubectlOutputFormatYaml,
-			},
-			runCommandWithFzf:   defaultRunCommand,
-			kubectlGetDetailErr: defaultWantErr,
-			wantErr:             defaultWantErr,
-			wantIO:              "",
-			wantIOErr:           "",
 		},
 	}
 

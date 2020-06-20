@@ -3,14 +3,20 @@
 [![GitHub](https://img.shields.io/github/license/at-ishikawa/kubectl-fzf)](https://github.com/at-ishikawa/kubectl-fzf/blob/master/LICENSE)
 [![Go workflow](https://github.com/at-ishikawa/kubectl-fzf/workflows/Go/badge.svg)](https://github.com/at-ishikawa/kubectl-fzf)
 
-![kubectl-fzf get demo](doc/demo.gif)
-
 ## tl;dr
 This plugin is the similar to the next command (fish).
+The key binding is similar to the window operations of Emacs.
 
 ```fish
-> set -l resource pods resource
+> set -l resource pods
+> set -l key_bindings ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down
 > kubectl get $resource | fzf --inline-info --multi --layout=reverse --preview="kubectl describe $resource {1}" --header-lines 1 --preview-window=down:70% --bind $key_bindings | awk '{ print $1 }' | string trim
+```
+
+## Example usages
+```
+> kubectl fzf pods | xargs kubectl describe pods
+> kubectl fzf svc | xargs -I{} kubectl port-forward svc/{} 9000:9000
 ```
 
 ## Install
@@ -20,38 +26,18 @@ You must install `go >= v1.13`.
 ```
 
 ## Usage
-### kubectl fzf get
 ```
-> kubectl fzf get --help
-kubectl get resources with fzf
+> kubectl fzf --help
+kubectl get [resource] command with fzf
 
 Usage:
-  kubectl-fzf get [resource] [flags]
+  kubectl-fzf [resource] [flags]
 
 Flags:
-  -h, --help                    help for get
-  -o, --output string           The output format (default "name")
+  -h, --help                    help for kubectl-fzf
+  -n, --namespace string        Kubernetes namespace
   -p, --preview-format string   The format of preview (default "describe")
-
-Global Flags:
-  -n, --namespace string   Kubernetes namespace
-  -q, --query string       Start the fzf with this query
-```
-
-### kubectl fzf describe
-```
-> kubectl fzf describe --help
-kubectl describe resources with fzf
-
-Usage:
-  kubectl-fzf describe [resource] [flags]
-
-Flags:
-  -h, --help   help for describe
-
-Global Flags:
-  -n, --namespace string   Kubernetes namespace
-  -q, --query string       Start the fzf with this query
+  -q, --query string            Start the fzf with this query
 ```
 
 ## Requirements
@@ -59,12 +45,8 @@ Global Flags:
 * fzf
 * kubectl
 
-
 # Environment variables
-* `KUBECTL_FZF_FZF_BIND_OPTION`
-    * The bind option for fzf
-    * Default: `ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down`
 * `KUBECTL_FZF_FZF_OPTION`
-    * The entire option for fzf. This option may use `KUBECTL_FZF_FZF_BIND_OPTION` environment variable.
-    * Default: `--inline-info --multi --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind $KUBECTL_FZF_FZF_BIND_OPTION`
-    * `$KUBECTL_FZF_FZF_PREVIEW_OPTION` is replaced with preview command. This cannot be injected by environment variable `KUBECTL_FZF_FZF_PREVIEW_OPTION`.
+    * The option for fzf.
+    * Default: `--inline-info --multi --layout reverse --preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION' --preview-window down:70% --header-lines 1 --bind ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down`
+    * `$KUBECTL_FZF_FZF_PREVIEW_OPTION` is replaced with the command, which depends on `--preview-format` argument.

@@ -11,14 +11,12 @@ import (
 )
 
 type getCli struct {
-	kubectl      Kubectl
-	outputFormat string
-	fzfOption    string
+	kubectl   Kubectl
+	fzfOption string
 }
 
 var (
 	errorInvalidArgumentFZFPreviewCommand = errors.New("preview format must be one of [describe, yaml]")
-	errorInvalidArgumentOutputFormat      = errors.New("output format must be one of [name, yaml, json]")
 
 	getCliPreviewCommands = map[string]struct {
 		operation string
@@ -34,14 +32,9 @@ var (
 			},
 		},
 	}
-	getCliOutputFormats = map[string]struct{}{
-		kubectlOutputFormatName: {},
-		kubectlOutputFormatYaml: {},
-		kubectlOutputFormatJSON: {},
-	}
 )
 
-func NewGetCli(k *kubectl, previewFormat string, outputFormat string, fzfQuery string) (*getCli, error) {
+func NewGetCli(k *kubectl, previewFormat string, fzfQuery string) (*getCli, error) {
 	previewCommandTemplate, ok := getCliPreviewCommands[previewFormat]
 	if !ok {
 		return nil, errorInvalidArgumentFZFPreviewCommand
@@ -54,14 +47,10 @@ func NewGetCli(k *kubectl, previewFormat string, outputFormat string, fzfQuery s
 	if fzfQuery != "" {
 		fzfOption = fzfOption + " --query " + fzfQuery
 	}
-	if _, ok := getCliOutputFormats[outputFormat]; !ok {
-		return nil, errorInvalidArgumentOutputFormat
-	}
 
 	return &getCli{
-		kubectl:      k,
-		fzfOption:    fzfOption,
-		outputFormat: outputFormat,
+		kubectl:   k,
+		fzfOption: fzfOption,
 	}, nil
 }
 
@@ -93,17 +82,7 @@ func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr 
 		names[i] = strings.TrimSpace(columns[0])
 	}
 
-	if c.outputFormat == kubectlOutputFormatName {
-		out = bytes.NewBufferString(strings.Join(names, "\n") + "\n").Bytes()
-	} else {
-		out, err = c.kubectl.run(ctx, "get", names, map[string]string{
-			"-o": c.outputFormat,
-		})
-		if err != nil {
-			return err
-		}
-	}
-
+	out = bytes.NewBufferString(strings.Join(names, "\n") + "\n").Bytes()
 	if _, err := ioOut.Write(out); err != nil {
 		return fmt.Errorf("failed to output the result: %w", err)
 	}
