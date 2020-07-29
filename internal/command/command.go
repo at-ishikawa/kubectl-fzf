@@ -13,6 +13,8 @@ import (
 )
 
 const (
+	kubernetesResourceAll = "all"
+
 	kubectlOutputFormatDescribe = "describe"
 	kubectlOutputFormatYaml     = "yaml"
 
@@ -26,9 +28,9 @@ var (
 		"--layout reverse",
 		"--preview '$KUBECTL_FZF_FZF_PREVIEW_OPTION'",
 		"--preview-window down:70%",
-		"--header-lines 1",
 		"--bind ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down",
 	}, " ")
+	singleResourceFzfOption = "--header-lines 1"
 )
 
 var (
@@ -46,7 +48,7 @@ var (
 )
 
 type Kubectl interface {
-	getCommand(operation string, names []string, options map[string]string) string
+	getCommand(operation string, resource string, names []string, options map[string]string) string
 	run(ctx context.Context, operation string, names []string, options map[string]string) ([]byte, error)
 }
 
@@ -66,7 +68,7 @@ func NewKubectl(kubernetesResource string, kubernetesNamespace string) (*kubectl
 }
 
 func (k kubectl) run(ctx context.Context, operation string, names []string, options map[string]string) ([]byte, error) {
-	out, err := runKubectl(ctx, k.getArguments(operation, names, options))
+	out, err := runKubectl(ctx, k.getArguments(operation, k.resource, names, options))
 	if err != nil {
 		message := string(out)
 		if len(message) > 0 {
@@ -77,29 +79,34 @@ func (k kubectl) run(ctx context.Context, operation string, names []string, opti
 	return out, nil
 }
 
-func (k kubectl) getCommand(operation string, names []string, options map[string]string) string {
-	return "kubectl " + strings.Join(k.getArguments(operation, names, options), " ")
+func (k kubectl) getCommand(operation string, resource string, names []string, options map[string]string) string {
+	return "kubectl " + strings.Join(k.getArguments(operation, resource, names, options), " ")
 }
 
-func (k kubectl) getArguments(operation string, names []string, options map[string]string) []string {
+func (k kubectl) getArguments(operation string, resource string, names []string, options map[string]string) []string {
 	args := []string{
 		operation,
-		k.resource,
+	}
+	if resource != "" {
+		args = append(args, resource)
 	}
 	args = append(args, names...)
 	if k.namespace != "" {
-		args = append(args, "-n", k.namespace)
+		args = append(args, "-n="+k.namespace)
 	}
 	for k, v := range options {
-		args = append(args, k, v)
+		args = append(args, k+"="+v)
 	}
 	return args
 }
 
-func getFzfOption(previewCommand string) (string, error) {
+func getFzfOption(previewCommand string, hasMultipleResources bool) (string, error) {
 	fzfOption := os.Getenv(envNameFzfOption)
 	if fzfOption == "" {
 		fzfOption = defaultFzfOption
+		if !hasMultipleResources {
+			fzfOption = fzfOption + " " + singleResourceFzfOption
+		}
 	}
 	options := map[string][]string{
 		"KUBECTL_FZF_FZF_PREVIEW_OPTION": {

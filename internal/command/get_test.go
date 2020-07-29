@@ -22,8 +22,8 @@ const (
 )
 
 func TestNewGetCli(t *testing.T) {
-	fzfOptionFunc := func(previewCommand string, query string) string {
-		fzf, err := getFzfOption(previewCommand)
+	fzfOptionFunc := func(previewCommand string, hasMultipleResources bool, query string) string {
+		fzf, err := getFzfOption(previewCommand, hasMultipleResources)
 		if err != nil {
 			panic(err)
 		}
@@ -45,7 +45,7 @@ func TestNewGetCli(t *testing.T) {
 		wantErr        error
 	}{
 		{
-			name:           "desc preview command",
+			name:           "desc preview command for single resource",
 			resource:       kubernetesResourcePods,
 			namespace:      "default",
 			previewCommand: kubectlOutputFormatDescribe,
@@ -55,20 +55,38 @@ func TestNewGetCli(t *testing.T) {
 					resource:  kubernetesResourcePods,
 					namespace: "default",
 				},
-				fzfOption: fzfOptionFunc("kubectl describe pods {1} -n default", ""),
+				fzfOption: fzfOptionFunc("kubectl describe pods {1} -n=default", false, ""),
 			},
 			wantErr: nil,
 		},
 		{
-			name:           "get yaml preview command",
-			resource:       kubernetesResourceService,
+			name:           "desc preview command for all resources",
+			resource:       kubernetesResourceAll,
+			previewCommand: kubectlOutputFormatDescribe,
+			want: &getCli{
+				kubectl: &kubectl{
+					resource: kubernetesResourceAll,
+				},
+				getOptions: map[string]string{
+					"--no-headers": "true",
+				},
+				fzfOption: fzfOptionFunc("kubectl describe {1}", true, ""),
+			},
+			wantErr: nil,
+		},
+		{
+			name:           "get yaml preview command for multiple resources",
+			resource:       kubernetesResourcePods + "," + kubernetesResourceService,
 			previewCommand: kubectlOutputFormatYaml,
 			fzfQuery:       "svc",
 			want: &getCli{
 				kubectl: &kubectl{
-					resource: kubernetesResourceService,
+					resource: kubernetesResourcePods + "," + kubernetesResourceService,
 				},
-				fzfOption: fzfOptionFunc("kubectl get svc {1} -o yaml", "svc"),
+				getOptions: map[string]string{
+					"--no-headers": "true",
+				},
+				fzfOption: fzfOptionFunc("kubectl get {1} -o=yaml", true, "svc"),
 			},
 			wantErr: nil,
 		},

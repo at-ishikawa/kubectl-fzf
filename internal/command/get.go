@@ -11,8 +11,9 @@ import (
 )
 
 type getCli struct {
-	kubectl   Kubectl
-	fzfOption string
+	kubectl    Kubectl
+	getOptions map[string]string
+	fzfOption  string
 }
 
 var (
@@ -39,8 +40,19 @@ func NewGetCli(k *kubectl, previewFormat string, fzfQuery string) (*getCli, erro
 	if !ok {
 		return nil, errorInvalidArgumentFZFPreviewCommand
 	}
-	previewCommand := k.getCommand(previewCommandTemplate.operation, []string{"{1}"}, previewCommandTemplate.options)
-	fzfOption, err := getFzfOption(previewCommand)
+
+	resource := k.resource
+	var getOptions map[string]string
+	hasMultipleResources := false
+	if k.resource == kubernetesResourceAll || strings.Contains(k.resource, ",") {
+		resource = ""
+		getOptions = map[string]string{
+			"--no-headers": "true",
+		}
+		hasMultipleResources = true
+	}
+	previewCommand := k.getCommand(previewCommandTemplate.operation, resource, []string{"{1}"}, previewCommandTemplate.options)
+	fzfOption, err := getFzfOption(previewCommand, hasMultipleResources)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fzf option: %w", err)
 	}
@@ -49,13 +61,14 @@ func NewGetCli(k *kubectl, previewFormat string, fzfQuery string) (*getCli, erro
 	}
 
 	return &getCli{
-		kubectl:   k,
-		fzfOption: fzfOption,
+		kubectl:    k,
+		getOptions: getOptions,
+		fzfOption:  fzfOption,
 	}, nil
 }
 
 func (c getCli) Run(ctx context.Context, ioIn io.Reader, ioOut io.Writer, ioErr io.Writer) error {
-	out, err := c.kubectl.run(ctx, "get", nil, nil)
+	out, err := c.kubectl.run(ctx, "get", nil, c.getOptions)
 	if err != nil {
 		return err
 	}
