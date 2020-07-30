@@ -65,6 +65,7 @@ func TestKubectl_getCommand(t *testing.T) {
 		name          string
 		kubectl       kubectl
 		operation     string
+		resource      string
 		resourceNames []string
 		options       map[string]string
 		want          string
@@ -72,10 +73,10 @@ func TestKubectl_getCommand(t *testing.T) {
 		{
 			name: "resource with namespace",
 			kubectl: kubectl{
-				resource:  kubernetesResourcePods,
 				namespace: "default",
 			},
 			operation: "get",
+			resource:  kubernetesResourcePods,
 			resourceNames: []string{
 				"pod1",
 				"pod2",
@@ -83,32 +84,40 @@ func TestKubectl_getCommand(t *testing.T) {
 			options: map[string]string{
 				"-o": "yaml",
 			},
-			want: "kubectl get pods pod1 pod2 -n default -o yaml",
+			want: "kubectl get pods pod1 pod2 -n=default -o=yaml",
 		},
 		{
-			name: "no namespace",
-			kubectl: kubectl{
-				resource: kubernetesResourcePods,
-			},
+			name:      "no namespace",
+			kubectl:   kubectl{},
 			operation: "get",
+			resource:  kubernetesResourcePods,
 			resourceNames: []string{
 				"pod1",
 			},
 			want: "kubectl get pods pod1",
 		},
 		{
-			name: "no resource",
-			kubectl: kubectl{
-				resource: kubernetesResourcePods,
+			name:      "no resource",
+			kubectl:   kubectl{},
+			operation: "describe",
+			resource:  "",
+			resourceNames: []string{
+				"pod/pod1",
 			},
+			want: "kubectl describe pod/pod1",
+		},
+		{
+			name:          "no resource names",
+			kubectl:       kubectl{},
 			operation:     "get",
+			resource:      kubernetesResourcePods,
 			resourceNames: nil,
 			want:          "kubectl get pods",
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.kubectl.getCommand(tc.operation, tc.resourceNames, tc.options)
+			got := tc.kubectl.getCommand(tc.operation, tc.resource, tc.resourceNames, tc.options)
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -119,6 +128,7 @@ func TestKubectl_getArguments(t *testing.T) {
 		name          string
 		kubectl       kubectl
 		operation     string
+		resource      string
 		resourceNames []string
 		options       map[string]string
 		want          []string
@@ -126,10 +136,10 @@ func TestKubectl_getArguments(t *testing.T) {
 		{
 			name: "resource with namespace",
 			kubectl: kubectl{
-				resource:  kubernetesResourcePods,
 				namespace: "default",
 			},
 			operation: "get",
+			resource:  kubernetesResourcePods,
 			resourceNames: []string{
 				"pod1",
 				"pod2",
@@ -142,18 +152,37 @@ func TestKubectl_getArguments(t *testing.T) {
 				"pods",
 				"pod1",
 				"pod2",
-				"-n",
-				"default",
-				"-o",
-				"yaml",
+				"-n=default",
+				"-o=yaml",
 			},
 		},
 		{
-			name: "no namespace",
+			name: "no resource with namespace",
 			kubectl: kubectl{
-				resource: kubernetesResourcePods,
+				namespace: "default",
 			},
 			operation: "get",
+			resource:  "",
+			resourceNames: []string{
+				"pod/pod1",
+				"svc/svc2",
+			},
+			options: map[string]string{
+				"-o": "yaml",
+			},
+			want: []string{
+				"get",
+				"pod/pod1",
+				"svc/svc2",
+				"-n=default",
+				"-o=yaml",
+			},
+		},
+		{
+			name:      "no namespace",
+			kubectl:   kubectl{},
+			operation: "get",
+			resource:  kubernetesResourcePods,
 			resourceNames: []string{
 				"pod1",
 			},
@@ -164,11 +193,10 @@ func TestKubectl_getArguments(t *testing.T) {
 			},
 		},
 		{
-			name: "no resource names",
-			kubectl: kubectl{
-				resource: kubernetesResourcePods,
-			},
+			name:      "no resource names",
+			kubectl:   kubectl{},
 			operation: "get",
+			resource:  kubernetesResourcePods,
 			want: []string{
 				"get",
 				"pods",
@@ -177,7 +205,7 @@ func TestKubectl_getArguments(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.kubectl.getArguments(tc.operation, tc.resourceNames, tc.options)
+			got := tc.kubectl.getArguments(tc.operation, tc.resource, tc.resourceNames, tc.options)
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -255,16 +283,23 @@ func TestKubectl_Run(t *testing.T) {
 
 func TestGetFzfOption(t *testing.T) {
 	testCases := []struct {
-		name           string
-		previewCommand string
-		envVars        map[string]string
-		want           string
-		wantErr        error
+		name                 string
+		previewCommand       string
+		hasMultipleResources bool
+		envVars              map[string]string
+		want                 string
+		wantErr              error
 	}{
 		{
-			name:           "no env vars",
+			name:                 "no env vars for multiple resources",
+			previewCommand:       "kubectl describe {{1}}",
+			hasMultipleResources: true,
+			want:                 fmt.Sprintf("--inline-info --multi --layout reverse --preview '%s' --preview-window down:70%% --bind ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", "kubectl describe {{1}}"),
+		},
+		{
+			name:           "no env vars for single resource",
 			previewCommand: "kubectl describe pods {{1}}",
-			want:           fmt.Sprintf("--inline-info --multi --layout reverse --preview '%s' --preview-window down:70%% --header-lines 1 --bind ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down", "kubectl describe pods {{1}}"),
+			want:           fmt.Sprintf("--inline-info --multi --layout reverse --preview '%s' --preview-window down:70%% --bind ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down --header-lines 1", "kubectl describe pods {{1}}"),
 		},
 		{
 			name:           "all correct env vars",
@@ -275,7 +310,7 @@ func TestGetFzfOption(t *testing.T) {
 			want: fmt.Sprintf("--preview '%s' --bind %s", "kubectl describe pods {{1}}", "ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down"),
 		},
 		{
-			name:           "no env vars",
+			name:           "no preview command in environment variable",
 			previewCommand: "unused preview command",
 			envVars: map[string]string{
 				envNameFzfOption: "--inline-info",
@@ -303,7 +338,7 @@ func TestGetFzfOption(t *testing.T) {
 			for k, v := range tc.envVars {
 				require.NoError(t, os.Setenv(k, v))
 			}
-			got, gotErr := getFzfOption(tc.previewCommand)
+			got, gotErr := getFzfOption(tc.previewCommand, tc.hasMultipleResources)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantErr, gotErr)
 		})

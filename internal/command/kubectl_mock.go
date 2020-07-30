@@ -34,17 +34,17 @@ func (m *MockKubectl) EXPECT() *MockKubectlMockRecorder {
 }
 
 // getCommand mocks base method
-func (m *MockKubectl) getCommand(arg0 string, arg1 []string, arg2 map[string]string) string {
+func (m *MockKubectl) getCommand(arg0, arg1 string, arg2 []string, arg3 map[string]string) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "getCommand", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "getCommand", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // getCommand indicates an expected call of getCommand
-func (mr *MockKubectlMockRecorder) getCommand(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockKubectlMockRecorder) getCommand(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getCommand", reflect.TypeOf((*MockKubectl)(nil).getCommand), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getCommand", reflect.TypeOf((*MockKubectl)(nil).getCommand), arg0, arg1, arg2, arg3)
 }
 
 // run mocks base method

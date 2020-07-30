@@ -10,12 +10,16 @@ The key binding is similar to the window operations of Emacs.
 ```fish
 > set -l resource pods
 > set -l key_bindings ctrl-k:kill-line,ctrl-alt-t:toggle-preview,ctrl-alt-n:preview-down,ctrl-alt-p:preview-up,ctrl-alt-v:preview-page-down
-> kubectl get $resource | fzf --inline-info --multi --layout=reverse --preview="kubectl describe $resource {1}" --header-lines 1 --preview-window=down:70% --bind $key_bindings | awk '{ print $1 }' | string trim
+> kubectl get $resource | fzf --inline-info --multi --layout=reverse --preview="kubectl describe $resource {1}" --preview-window=down:70% --bind $key_bindings --header-lines 1 | awk '{ print $1 }' | string trim
+# Or next command if resource is "all" or has multiple resources like "pods,services"
+> kubectl get all --no-headers=true | fzf --inline-info --multi --layout=reverse --preview="kubectl describe {1}" --preview-window=down:70% --bind $key_bindings | awk '{ print $1 }' | string trim
 ```
 
 ## Example usages
 ```
 > kubectl fzf pods | xargs kubectl describe pods
+> kubectl fzf pods,svc | xargs kubectl describe # support multiple resources
+> kubectl fzf all | xargs kubectl describe # support "all"
 > kubectl fzf svc | xargs -I{} kubectl port-forward svc/{} 9000:9000
 ```
 
