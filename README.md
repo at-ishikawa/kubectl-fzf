@@ -23,11 +23,39 @@ The key binding is similar to the window operations of Emacs.
 > kubectl fzf svc | xargs -I{} kubectl port-forward svc/{} 9000:9000
 ```
 
+You can also register this command as shortcut keys and use them.
+For example, as default setting, you can select your pods by next moment.
+```
+> kubectl describe pod [C-x C-k C-p]
+```
+
+Then you can select pods on the fzf finder and select one or multiple pods.
+
 ## Install
+### kubectl fzf CLI
+
 You must install `go >= v1.13`.
 ```shell script
 > go get -u github.com/at-ishikawa/kubectl-fzf/cmd/kubectl-fzf
 ```
+
+### Shortcut keys
+For a Fish user, you can set up default shortcut keys by next command.
+```
+> fisher add at-ishikawa/kubectl-fzf
+```
+
+These are shortcut keys to run this command.
+* The prefix key: Ctrl-x Ctrl-k
+* `kubectl fzf pod`: <PREFIX KEY> Ctrl-p
+* `kubectl fzf deployment`: <PREFIX KEY> Ctrl-d
+* `kubectl fzf service`: <PREFIX KEY> Ctrl-s
+* `kubectl fzf configmap`: <PREFIX KEY> Ctrl-c
+* `kubectl fzf horizontalpodautoscaler`: <PREFIX KEY> Ctrl-h
+* `kubectl fzf all`: <PREFIX KEY> Ctrl-a
+
+**Note that there is no support to remove these short cut keys on uninstallation currently.**
+
 
 ## Usage
 ```

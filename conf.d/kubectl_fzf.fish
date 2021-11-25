@@ -1,0 +1,6 @@
+bind \cx\ck\cp 'kubectl_fzf pod'
+bind \cx\ck\cd 'kubectl_fzf deployment'
+bind \cx\ck\cs 'kubectl_fzf service'
+bind \cx\ck\cc 'kubectl_fzf configmap'
+bind \cx\ck\ch 'kubectl_fzf horizontalpodautoscaler'
+bind \cx\ck\ca 'kubectl_fzf all'
